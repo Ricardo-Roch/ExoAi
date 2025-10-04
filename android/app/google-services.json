@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "267129806875",
+    "project_id": "exoai-70c21",
+    "storage_bucket": "exoai-70c21.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:267129806875:android:61a75b98423fa214d218be",
+        "android_client_info": {
+          "package_name": "com.example.exo_ai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6UmMS7mlEFlD4U0IHSEXg1-2epOfxwyU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
