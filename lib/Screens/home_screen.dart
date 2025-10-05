@@ -22,22 +22,40 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Lista de pantallas que se mostrarán
   late final List<Widget> _screens;
+
   Future<void> _handleLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Cerrar Sesión'),
-        content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFF334155), width: 1),
+        ),
+        title: const Text(
+          'Cerrar Sesión',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          '¿Estás seguro de que deseas cerrar sesión?',
+          style: TextStyle(color: Color(0xFF94A3B8)),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Color(0xFF60A5FA)),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: Colors.red[600],
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text('Cerrar Sesión'),
           ),
@@ -96,97 +114,162 @@ class _HomeScreenState extends State<HomeScreen> {
       // Interfaz con Drawer lateral para pantallas grandes
       return Scaffold(
         key: _scaffoldKey,
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFF0F172A),
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: const Color(0xFF1E293B),
           elevation: 0,
           leading: IconButton(
-            icon: Icon(Icons.menu, color: Colors.blue[600]),
+            icon: const Icon(Icons.menu, color: Color(0xFF60A5FA)),
             onPressed: () {
               _scaffoldKey.currentState?.openDrawer();
             },
           ),
-          title: Text(
-            _getAppBarTitle(),
-            style: TextStyle(
-              color: Colors.blue[600],
-              fontWeight: FontWeight.bold,
-            ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF60A5FA).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _getAppBarIcon(),
+                  color: const Color(0xFF60A5FA),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                _getAppBarTitle(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+            ],
           ),
         ),
         drawer: Drawer(
+          backgroundColor: const Color(0xFF1E293B),
           child: Column(
             children: [
               // Header del drawer con información del usuario
-              UserAccountsDrawerHeader(
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(16, 60, 16, 20),
                 decoration: BoxDecoration(
-                  color: Colors.blue[600],
-                ),
-                currentAccountPicture: CircleAvatar(
-                  backgroundColor: Colors.white,
-                  child: user?.photoURL != null
-                      ? ClipOval(
-                          child: Image.network(
-                            user!.photoURL!,
-                            fit: BoxFit.cover,
-                            width: 90,
-                            height: 90,
-                          ),
-                        )
-                      : Icon(
-                          Icons.person,
-                          size: 50,
-                          color: Colors.blue[600],
-                        ),
-                ),
-                accountName: Text(
-                  userName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF60A5FA),
+                      Colors.blue[800]!,
+                    ],
                   ),
                 ),
-                accountEmail: Text(userEmail),
-              ),
-              // Items del menú
-              Expanded(
-                child: ListView(
-                  padding: EdgeInsets.zero,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildDrawerItem(
-                      icon: Icons.home,
-                      title: 'Inicio',
-                      index: 0,
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 3),
+                      ),
+                      child: CircleAvatar(
+                        radius: 35,
+                        backgroundColor: Colors.white,
+                        child: user?.photoURL != null
+                            ? ClipOval(
+                                child: Image.network(
+                                  user!.photoURL!,
+                                  fit: BoxFit.cover,
+                                  width: 70,
+                                  height: 70,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.person,
+                                size: 40,
+                                color: Color(0xFF60A5FA),
+                              ),
+                      ),
                     ),
-                    _buildDrawerItem(
-                      icon: Icons.dataset,
-                      title: 'Datos',
-                      index: 1,
+                    const SizedBox(height: 16),
+                    Text(
+                      userName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
                     ),
-                    _buildDrawerItem(
-                      icon: Icons.psychology,
-                      title: 'IA',
-                      index: 2,
-                    ),
-                    _buildDrawerItem(
-                      icon: Icons.visibility,
-                      title: 'Visualizaciones',
-                      index: 3,
-                    ),
-                    _buildDrawerItem(
-                      icon: Icons.person,
-                      title: 'Perfil',
-                      index: 4,
+                    const SizedBox(height: 4),
+                    Text(
+                      userEmail,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
               ),
+              // Items del menú
+              Expanded(
+                child: Container(
+                  color: const Color(0xFF1E293B),
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    children: [
+                      _buildDrawerItem(
+                        icon: Icons.home_rounded,
+                        title: 'Inicio',
+                        index: 0,
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.dataset_rounded,
+                        title: 'Datos',
+                        index: 1,
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.psychology_rounded,
+                        title: 'IA',
+                        index: 2,
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.visibility_rounded,
+                        title: 'Visualizaciones',
+                        index: 3,
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.person_rounded,
+                        title: 'Perfil',
+                        index: 4,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               // Footer con cerrar sesión
-              const Divider(),
-              ListTile(
-                leading: Icon(Icons.logout, color: Colors.red[400]),
-                title: const Text('Cerrar sesión'),
-                onTap: _handleLogout,
+              Container(
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: Color(0xFF334155), width: 1),
+                  ),
+                ),
+                child: ListTile(
+                  leading: Icon(Icons.logout_rounded, color: Colors.red[400]),
+                  title: const Text(
+                    'Cerrar sesión',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  onTap: _handleLogout,
+                ),
               ),
               const SizedBox(height: 10),
             ],
@@ -197,44 +280,75 @@ class _HomeScreenState extends State<HomeScreen> {
     } else {
       // Interfaz con BottomNavigationBar para móviles
       return Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFF0F172A),
         appBar: null,
         body: _screens[_selectedIndex],
-        bottomNavigationBar: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          currentIndex: _selectedIndex,
-          selectedItemColor: Colors.blue[600],
-          unselectedItemColor: Colors.grey[400],
-          onTap: (index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-          },
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home),
-              label: 'Inicio',
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF1E293B),
+                Color(0xFF0F172A),
+              ],
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.dataset),
-              label: 'Datos',
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, -5),
+              ),
+            ],
+            border: const Border(
+              top: BorderSide(color: Color(0xFF334155), width: 1),
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.psychology),
-              label: 'IA',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.visibility),
-              label: 'Visualizaciones',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person),
-              label: 'Perfil',
-            ),
-          ],
+          ),
+          child: BottomNavigationBar(
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            currentIndex: _selectedIndex,
+            selectedItemColor: const Color(0xFF60A5FA),
+            unselectedItemColor: const Color(0xFF64748B),
+            selectedFontSize: 12,
+            unselectedFontSize: 11,
+            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+            showUnselectedLabels: true,
+            onTap: (index) {
+              setState(() {
+                _selectedIndex = index;
+              });
+            },
+            items: [
+              _buildBottomNavItem(Icons.home_rounded, 'Inicio', 0),
+              _buildBottomNavItem(Icons.dataset_rounded, 'Datos', 1),
+              _buildBottomNavItem(Icons.psychology_rounded, 'IA', 2),
+              _buildBottomNavItem(Icons.visibility_rounded, 'Visual', 3),
+              _buildBottomNavItem(Icons.person_rounded, 'Perfil', 4),
+            ],
+          ),
         ),
       );
     }
+  }
+
+  BottomNavigationBarItem _buildBottomNavItem(
+      IconData icon, String label, int index) {
+    final isSelected = _selectedIndex == index;
+    return BottomNavigationBarItem(
+      icon: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF60A5FA).withOpacity(0.2)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon),
+      ),
+      label: label,
+    );
   }
 
   Widget _buildDrawerItem({
@@ -244,21 +358,42 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     final isSelected = _selectedIndex == index;
 
-    return ListTile(
-      selected: isSelected,
-      selectedTileColor: Colors.blue[50],
-      leading: Icon(
-        icon,
-        color: isSelected ? Colors.blue[600] : Colors.grey[600],
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: isSelected ? Colors.blue[600] : Colors.grey[800],
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: ListTile(
+        selected: isSelected,
+        selectedTileColor: const Color(0xFF60A5FA).withOpacity(0.2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: isSelected
+              ? const BorderSide(color: Color(0xFF60A5FA), width: 1)
+              : BorderSide.none,
         ),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? const Color(0xFF60A5FA).withOpacity(0.2)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            color:
+                isSelected ? const Color(0xFF60A5FA) : const Color(0xFF94A3B8),
+            size: 22,
+          ),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            fontSize: 15,
+          ),
+        ),
+        onTap: () => _onDrawerItemTapped(index),
       ),
-      onTap: () => _onDrawerItemTapped(index),
     );
   }
 
@@ -276,6 +411,23 @@ class _HomeScreenState extends State<HomeScreen> {
         return 'Perfil';
       default:
         return 'ExoAi';
+    }
+  }
+
+  IconData _getAppBarIcon() {
+    switch (_selectedIndex) {
+      case 0:
+        return Icons.home_rounded;
+      case 1:
+        return Icons.dataset_rounded;
+      case 2:
+        return Icons.psychology_rounded;
+      case 3:
+        return Icons.visibility_rounded;
+      case 4:
+        return Icons.person_rounded;
+      default:
+        return Icons.apps;
     }
   }
 }

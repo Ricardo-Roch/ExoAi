@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class IAScreen extends StatefulWidget {
   const IAScreen({Key? key}) : super(key: key);
@@ -8,291 +10,487 @@ class IAScreen extends StatefulWidget {
 }
 
 class _IAScreenState extends State<IAScreen> {
-  final TextEditingController _queryController = TextEditingController();
-  final List<Map<String, dynamic>> _conversations = [];
-  bool _isProcessing = false;
+  final TextEditingController _periodController = TextEditingController();
+  final TextEditingController _durationController = TextEditingController();
+  final TextEditingController _depthController = TextEditingController();
+  final TextEditingController _radiusController = TextEditingController();
+  final TextEditingController _insolationController = TextEditingController();
+  final TextEditingController _teffController = TextEditingController();
+  final TextEditingController _sradController = TextEditingController();
 
-  // Modelos de IA disponibles
-  final List<Map<String, dynamic>> _aiModels = [
-    {
-      'name': 'GPT-4',
-      'description': 'Modelo avanzado de lenguaje',
-      'icon': Icons.psychology,
-      'color': Colors.purple,
-      'status': 'Activo',
-    },
-    {
-      'name': 'Claude 3',
-      'description': 'Asistente conversacional',
-      'icon': Icons.chat_bubble_outline,
-      'color': Colors.orange,
-      'status': 'Activo',
-    },
-    {
-      'name': 'Gemini Pro',
-      'description': 'Análisis multimodal',
-      'icon': Icons.auto_awesome,
-      'color': Colors.blue,
-      'status': 'Activo',
-    },
-  ];
+  bool _isProcessing = false;
+  Map<String, dynamic>? _prediction;
+  String? _errorMessage;
 
   @override
   void dispose() {
-    _queryController.dispose();
+    _periodController.dispose();
+    _durationController.dispose();
+    _depthController.dispose();
+    _radiusController.dispose();
+    _insolationController.dispose();
+    _teffController.dispose();
+    _sradController.dispose();
     super.dispose();
   }
 
-  void _sendQuery() {
-    if (_queryController.text.trim().isEmpty) return;
+  Future<void> _sendPrediction() async {
+    // Validar que todos los campos estén llenos
+    if (_periodController.text.trim().isEmpty ||
+        _durationController.text.trim().isEmpty ||
+        _depthController.text.trim().isEmpty ||
+        _radiusController.text.trim().isEmpty ||
+        _insolationController.text.trim().isEmpty ||
+        _teffController.text.trim().isEmpty ||
+        _sradController.text.trim().isEmpty) {
+      setState(() {
+        _errorMessage = 'Por favor completa todos los campos';
+      });
+      return;
+    }
 
     setState(() {
-      _conversations.add({
-        'type': 'user',
-        'message': _queryController.text,
-        'timestamp': DateTime.now(),
-      });
       _isProcessing = true;
+      _errorMessage = null;
+      _prediction = null;
     });
 
-    final query = _queryController.text;
-    _queryController.clear();
+    try {
+      final response = await http.post(
+        Uri.parse('https://back-exoai.onrender.com/predict'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'period': double.parse(_periodController.text),
+          'duration': double.parse(_durationController.text),
+          'depth': double.parse(_depthController.text),
+          'radius': double.parse(_radiusController.text),
+          'insolation': double.parse(_insolationController.text),
+          'teff': double.parse(_teffController.text),
+          'srad': double.parse(_sradController.text),
+        }),
+      );
 
-    // Simular respuesta de IA
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
         setState(() {
-          _conversations.add({
-            'type': 'ai',
-            'message':
-                'Esta es una respuesta simulada a tu consulta: "$query". En la versión completa, aquí se mostraría la respuesta real del modelo de IA.',
-            'timestamp': DateTime.now(),
-          });
+          _prediction = data;
           _isProcessing = false;
         });
+      } else {
+        throw Exception('Error ${response.statusCode}: ${response.body}');
       }
-    });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error al realizar la predicción: $e';
+        _isProcessing = false;
+      });
+    }
+  }
+
+  void _loadExampleData() {
+    _periodController.text = '5.23';
+    _durationController.text = '2.5';
+    _depthController.text = '0.0013';
+    _radiusController.text = '1.2';
+    _insolationController.text = '1.05';
+    _teffController.text = '5778';
+    _sradController.text = '1.0';
   }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Column(
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Inteligencia Artificial',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF0F172A),
+              Color(0xFF172554),
+              Color(0xFF0F172A),
+            ],
+          ),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Predicción de Exoplanetas',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Análisis con IA avanzada',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Interactúa con modelos de IA avanzados',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
+                  IconButton(
+                    onPressed: _loadExampleData,
+                    icon: const Icon(Icons.file_copy, color: Colors.white),
+                    tooltip: 'Cargar ejemplo',
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.blue[600],
+                      padding: const EdgeInsets.all(12),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-
-          // Modelos disponibles (carousel horizontal)
-          SizedBox(
-            height: 120,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              itemCount: _aiModels.length,
-              itemBuilder: (context, index) {
-                final model = _aiModels[index];
-                return _buildModelCard(
-                  name: model['name'],
-                  description: model['description'],
-                  icon: model['icon'],
-                  color: model['color'],
-                  status: model['status'],
-                );
-              },
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Área de conversación
-          Expanded(
-            child: _conversations.isEmpty
-                ? _buildEmptyState()
-                : _buildConversationList(),
-          ),
-
-          // Input de consulta
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                top: BorderSide(color: Colors.grey[300]!),
+                ],
               ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _queryController,
-                    decoration: InputDecoration(
-                      hintText: 'Escribe tu consulta aquí...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide(color: Colors.grey[300]!),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide(color: Colors.grey[300]!),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide(color: Colors.blue[600]!),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
+              const SizedBox(height: 24),
+
+              // Formulario de entrada
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF1E293B),
+                      Color(0xFF0F172A),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFF334155),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.public, color: Color(0xFF60A5FA)),
+                        SizedBox(width: 8),
+                        Text(
+                          'Parámetros del Exoplaneta',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    _buildInputField(
+                      controller: _periodController,
+                      label: 'Período (días)',
+                      hint: 'Ej: 5.23',
+                      icon: Icons.rotate_right,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInputField(
+                      controller: _durationController,
+                      label: 'Duración (horas)',
+                      hint: 'Ej: 2.5',
+                      icon: Icons.access_time,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInputField(
+                      controller: _depthController,
+                      label: 'Profundidad',
+                      hint: 'Ej: 0.0013',
+                      icon: Icons.vertical_align_center,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInputField(
+                      controller: _radiusController,
+                      label: 'Radio (R⊕)',
+                      hint: 'Ej: 1.2',
+                      icon: Icons.circle_outlined,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInputField(
+                      controller: _insolationController,
+                      label: 'Insolación',
+                      hint: 'Ej: 1.05',
+                      icon: Icons.wb_sunny,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInputField(
+                      controller: _teffController,
+                      label: 'Temperatura Efectiva (K)',
+                      hint: 'Ej: 5778',
+                      icon: Icons.thermostat,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInputField(
+                      controller: _sradController,
+                      label: 'Radio Estelar (R☉)',
+                      hint: 'Ej: 1.0',
+                      icon: Icons.star,
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isProcessing ? null : _sendPrediction,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue[600],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: _isProcessing
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                ),
+                              )
+                            : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.rocket_launch),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Realizar Predicción',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                       ),
                     ),
-                    maxLines: null,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sendQuery(),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Mensajes de error
+              if (_errorMessage != null)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red[900]?.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red[600]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error_outline, color: Colors.red[300]),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(color: Colors.red[100]),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 12),
+
+              // Resultados de predicción
+              if (_prediction != null) ...[
+                const SizedBox(height: 24),
                 Container(
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.blue[600],
-                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.blue[900]!.withOpacity(0.3),
+                        Colors.purple[900]!.withOpacity(0.3),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFF60A5FA),
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
                   ),
-                  child: IconButton(
-                    onPressed: _isProcessing ? null : _sendQuery,
-                    icon: _isProcessing
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.analytics, color: Color(0xFF60A5FA)),
+                          SizedBox(width: 8),
+                          Text(
+                            'Resultado de Predicción',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
-                          )
-                        : const Icon(Icons.send, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      _buildResultCard(
+                        'Clasificación',
+                        _prediction!['prediction']?.toString() ?? 'N/A',
+                        Icons.category,
+                        Colors.blue,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildResultCard(
+                        'Confianza',
+                        '${(_prediction!['confidence'] * 100).toStringAsFixed(2)}%',
+                        Icons.percent,
+                        Colors.green,
+                      ),
+                      if (_prediction!['probabilities'] != null) ...[
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Probabilidades por clase:',
+                          style: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ...(_prediction!['probabilities'] as Map).entries.map(
+                              (entry) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: _buildProbabilityBar(
+                                  entry.key,
+                                  entry.value,
+                                ),
+                              ),
+                            ),
+                      ],
+                    ],
                   ),
                 ),
               ],
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildModelCard({
-    required String name,
-    required String description,
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
     required IconData icon,
-    required Color color,
-    required String status,
   }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF94A3B8),
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: Colors.grey[600]),
+            prefixIcon: Icon(icon, color: const Color(0xFF60A5FA)),
+            filled: true,
+            fillColor: const Color(0xFF0F172A),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF334155)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF334155)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF60A5FA), width: 2),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResultCard(
+      String label, String value, IconData icon, Color color) {
     return Container(
-      width: 160,
-      margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 24),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  status,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.green[700],
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 12,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            name,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            description,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey[600],
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.chat_outlined,
-            size: 80,
-            color: Colors.grey[300],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Inicia una conversación',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Escribe tu consulta y obtén respuestas\nimpulsadas por IA',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -300,36 +498,43 @@ class _IAScreenState extends State<IAScreen> {
     );
   }
 
-  Widget _buildConversationList() {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      itemCount: _conversations.length,
-      itemBuilder: (context, index) {
-        final message = _conversations[index];
-        final isUser = message['type'] == 'user';
-
-        return Align(
-          alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.75,
-            ),
-            decoration: BoxDecoration(
-              color: isUser ? Colors.blue[600] : Colors.grey[100],
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text(
-              message['message'],
-              style: TextStyle(
-                fontSize: 14,
-                color: isUser ? Colors.white : Colors.grey[800],
+  Widget _buildProbabilityBar(String label, double value) {
+    final percentage = (value * 100).toStringAsFixed(1);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
               ),
             ),
+            Text(
+              '$percentage%',
+              style: const TextStyle(
+                color: Color(0xFF60A5FA),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: value,
+            backgroundColor: const Color(0xFF334155),
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF60A5FA)),
+            minHeight: 8,
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }
