@@ -89,8 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
       const ExoplanetScreen(),
       const IAScreen(),
       const VisualizacionesScreen(),
-      const CommunityScreen(), // AGREGADO - Índice 4
-      ProfileScreen(userName: userName), // Ahora es índice 5
+      const CommunityScreen(), // Índice 4
     ];
   }
 

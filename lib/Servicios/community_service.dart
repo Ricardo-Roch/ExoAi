@@ -20,25 +20,6 @@ class CommunityService {
     final user = currentUser;
     if (user == null) throw Exception('Usuario no autenticado');
 
-    // PRIMERO: Asegurar que el documento del usuario existe
-    final userRef = _firestore.collection('users').doc(user.uid);
-    final userDoc = await userRef.get();
-
-    if (!userDoc.exists) {
-      // Crear el documento del usuario si no existe
-      await userRef.set({
-        'displayName': user.displayName ?? 'Usuario',
-        'email': user.email ?? '',
-        'photoURL': user.photoURL,
-        'bio': '',
-        'followers': [],
-        'following': [],
-        'postsCount': 0,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    }
-
     final batch = _firestore.batch();
 
     // Crear el post
@@ -56,14 +37,13 @@ class CommunityService {
     });
 
     // Incrementar contador de posts del usuario
+    final userRef = _firestore.collection('users').doc(user.uid);
     batch.update(userRef, {
       'postsCount': FieldValue.increment(1),
     });
 
     await batch.commit();
   }
-
-  // ... resto del código igual
 
   // Obtener posts (stream en tiempo real)
   Stream<List<Post>> getPosts() {
@@ -78,33 +58,35 @@ class CommunityService {
   }
 
   // Obtener posts de usuarios que sigue (feed personalizado)
+  // VERSIÓN SIMPLIFICADA SIN ÍNDICE COMPUESTO
   Stream<List<Post>> getFollowingPosts() {
     final user = currentUser;
     if (user == null) return Stream.value([]);
 
-    return _firestore.collection('users').doc(user.uid).snapshots().asyncMap(
-      (userDoc) async {
-        if (!userDoc.exists) return <Post>[];
+    // Primero obtenemos todos los posts y luego filtramos en memoria
+    return _firestore
+        .collection('posts')
+        .orderBy('createdAt', descending: true)
+        .limit(100)
+        .snapshots()
+        .asyncMap((postsSnapshot) async {
+      // Obtener la lista de usuarios que sigue
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      final following = List<String>.from(userDoc.data()?['following'] ?? []);
 
-        final following = List<String>.from(userDoc.data()?['following'] ?? []);
+      // Agregar el propio usuario
+      following.add(user.uid);
 
-        // Siempre incluir posts del propio usuario
-        final userIds = [...following, user.uid];
+      if (following.isEmpty) return <Post>[];
 
-        if (userIds.isEmpty) return <Post>[];
+      // Filtrar posts en memoria
+      final posts = postsSnapshot.docs
+          .map((doc) => Post.fromFirestore(doc))
+          .where((post) => following.contains(post.userId))
+          .toList();
 
-        final postsSnapshot = await _firestore
-            .collection('posts')
-            .where('userId', whereIn: userIds)
-            .orderBy('createdAt', descending: true)
-            .limit(50)
-            .get();
-
-        return postsSnapshot.docs
-            .map((doc) => Post.fromFirestore(doc))
-            .toList();
-      },
-    );
+      return posts;
+    });
   }
 
   // Obtener posts de un usuario específico
@@ -132,11 +114,13 @@ class CommunityService {
     final likes = List<String>.from(postDoc.data()?['likes'] ?? []);
 
     if (likes.contains(user.uid)) {
+      // Quitar like
       await postRef.update({
         'likes': FieldValue.arrayRemove([user.uid]),
         'likesCount': FieldValue.increment(-1),
       });
     } else {
+      // Agregar like
       await postRef.update({
         'likes': FieldValue.arrayUnion([user.uid]),
         'likesCount': FieldValue.increment(1),
@@ -151,9 +135,11 @@ class CommunityService {
 
     final postDoc = await _firestore.collection('posts').doc(postId).get();
 
+    // Verificar que el usuario sea el dueño del post
     if (postDoc.data()?['userId'] == user.uid) {
       final batch = _firestore.batch();
 
+      // Eliminar comentarios del post
       final comments = await _firestore
           .collection('comments')
           .where('postId', isEqualTo: postId)
@@ -163,10 +149,11 @@ class CommunityService {
         batch.delete(comment.reference);
       }
 
+      // Eliminar el post
       batch.delete(_firestore.collection('posts').doc(postId));
 
-      final userRef = _firestore.collection('users').doc(user.uid);
-      batch.update(userRef, {
+      // Decrementar contador de posts del usuario
+      batch.update(_firestore.collection('users').doc(user.uid), {
         'postsCount': FieldValue.increment(-1),
       });
 
@@ -176,6 +163,7 @@ class CommunityService {
 
   // COMENTARIOS
 
+  // Agregar comentario
   Future<void> addComment({
     required String postId,
     required String content,
@@ -185,6 +173,7 @@ class CommunityService {
 
     final batch = _firestore.batch();
 
+    // Agregar comentario
     final commentRef = _firestore.collection('comments').doc();
     batch.set(commentRef, {
       'postId': postId,
@@ -195,6 +184,7 @@ class CommunityService {
       'createdAt': FieldValue.serverTimestamp(),
     });
 
+    // Incrementar contador de comentarios en el post
     final postRef = _firestore.collection('posts').doc(postId);
     batch.update(postRef, {
       'commentsCount': FieldValue.increment(1),
@@ -203,6 +193,7 @@ class CommunityService {
     await batch.commit();
   }
 
+  // Obtener comentarios de un post
   Stream<List<Comment>> getComments(String postId) {
     return _firestore
         .collection('comments')
@@ -214,6 +205,7 @@ class CommunityService {
     });
   }
 
+  // Eliminar comentario
   Future<void> deleteComment(String commentId, String postId) async {
     final user = currentUser;
     if (user == null) return;
@@ -221,16 +213,24 @@ class CommunityService {
     final commentDoc =
         await _firestore.collection('comments').doc(commentId).get();
 
+    // Verificar que el usuario sea el dueño del comentario
     if (commentDoc.data()?['userId'] == user.uid) {
       final batch = _firestore.batch();
+
       batch.delete(_firestore.collection('comments').doc(commentId));
+
+      // Decrementar contador de comentarios en el post
       batch.update(_firestore.collection('posts').doc(postId), {
         'commentsCount': FieldValue.increment(-1),
       });
+
       await batch.commit();
     }
   }
 
+  // USUARIOS
+
+  // Guardar/actualizar información del usuario
   Future<void> saveUserData() async {
     final user = currentUser;
     if (user == null) return;
