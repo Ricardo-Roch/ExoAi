@@ -113,7 +113,7 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
       // En caso de error, usar datos de respaldo
       setState(() {
         _exoplanets = _fallbackExoplanets;
-        _errorMessage = 'Usando datos locales: ${e.toString()}';
+        //_errorMessage = 'Usando datos locales: ${e.toString()}';
         _isLoading = false;
       });
     }

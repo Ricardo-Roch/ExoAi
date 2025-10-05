@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../Servicios/firebase_auth_service.dart';
 import 'home_screen.dart';
+import 'dart:math' as math;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -13,10 +14,11 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with TickerProviderStateMixin {
   late AnimationController _animationController;
-  late AnimationController _gradientController;
+  late AnimationController _starsController;
+  late AnimationController _planetController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-  late Animation<double> _gradientAnimation;
+  late Animation<double> _scaleAnimation;
 
   final FirebaseAuthService _authService = FirebaseAuthService();
   bool _isLoading = false;
@@ -25,24 +27,23 @@ class _LoginScreenState extends State<LoginScreen>
   void initState() {
     super.initState();
 
-    // Verificar si ya hay un usuario autenticado
     _checkCurrentUser();
 
-    // Animación de entrada
+    // Animación principal
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1800),
       vsync: this,
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: const Interval(0.0, 0.8, curve: Curves.easeOut),
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
       ),
     );
 
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
+      begin: const Offset(0, 0.5),
       end: Offset.zero,
     ).animate(
       CurvedAnimation(
@@ -51,20 +52,26 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
 
-    // Animación del degradado (bucle infinito)
-    _gradientController = AnimationController(
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.8, curve: Curves.elasticOut),
+      ),
+    );
+
+    // Animación de estrellas
+    _starsController = AnimationController(
+      duration: const Duration(seconds: 20),
+      vsync: this,
+    )..repeat();
+
+    // Animación de planeta flotante
+    _planetController = AnimationController(
       duration: const Duration(seconds: 4),
       vsync: this,
     )..repeat(reverse: true);
 
-    _gradientAnimation = Tween<double>(begin: 0.0, end: 0.7).animate(
-      CurvedAnimation(
-        parent: _gradientController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    Future.delayed(const Duration(milliseconds: 200), () {
+    Future.delayed(const Duration(milliseconds: 300), () {
       _animationController.forward();
     });
   }
@@ -83,7 +90,8 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void dispose() {
     _animationController.dispose();
-    _gradientController.dispose();
+    _starsController.dispose();
+    _planetController.dispose();
     super.dispose();
   }
 
@@ -103,11 +111,8 @@ class _LoginScreenState extends State<LoginScreen>
             transitionsBuilder: (context, animation, _, child) {
               return FadeTransition(
                 opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.0, 0.1),
-                    end: Offset.zero,
-                  ).animate(
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 0.95, end: 1.0).animate(
                     CurvedAnimation(
                       parent: animation,
                       curve: Curves.easeOutCubic,
@@ -117,14 +122,24 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
               );
             },
-            transitionDuration: const Duration(milliseconds: 400),
+            transitionDuration: const Duration(milliseconds: 600),
           ),
         );
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Inicio de sesión cancelado'),
-            backgroundColor: Colors.orange,
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Inicio de sesión cancelado'),
+              ],
+            ),
+            backgroundColor: Colors.orange[700],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -132,8 +147,18 @@ class _LoginScreenState extends State<LoginScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al iniciar sesión: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Error: ${e.toString()}')),
+              ],
+            ),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -148,78 +173,171 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
     return Scaffold(
-      body: AnimatedBuilder(
-        animation: _gradientAnimation,
-        builder: (context, child) {
-          return Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomLeft,
-                end: Alignment.topRight,
-                colors: [
-                  Colors.black,
-                  Colors.black,
-                  Color.lerp(Colors.black, const Color(0xFF07173F),
-                      _gradientAnimation.value)!,
-                  const Color(0xFF07173F),
-                ],
-                stops: [
-                  0.0,
-                  _gradientAnimation.value * 0.5,
-                  _gradientAnimation.value,
-                  1.0,
-                ],
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0A0E27),
+              Color(0xFF1a1a2e),
+              Color(0xFF16213e),
+              Color(0xFF0f3460),
+            ],
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Estrellas animadas
+            AnimatedBuilder(
+              animation: _starsController,
+              builder: (context, child) {
+                return CustomPaint(
+                  painter: StarsPainter(_starsController.value),
+                  size: Size.infinite,
+                );
+              },
+            ),
+
+            // Planeta flotante
+            Positioned(
+              top: size.height * 0.1,
+              right: -size.width * 0.3,
+              child: AnimatedBuilder(
+                animation: _planetController,
+                builder: (context, child) {
+                  return Transform.translate(
+                    offset: Offset(
+                      0,
+                      math.sin(_planetController.value * 2 * math.pi) * 20,
+                    ),
+                    child: Opacity(
+                      opacity: 0.15,
+                      child: Container(
+                        width: size.width * 0.8,
+                        height: size.width * 0.8,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              const Color(0xFF60A5FA).withOpacity(0.3),
+                              const Color(0xFF3B82F6).withOpacity(0.1),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-            child: SafeArea(
+
+            // Contenido principal
+            SafeArea(
               child: Column(
                 children: [
-                  // Contenido con scroll
-                  Flexible(
-                    child: SingleChildScrollView(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  Expanded(
+                    child: Center(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 32.0),
                         child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const SizedBox(height: 60),
-
-                            // Logo del planeta
-                            FadeTransition(
-                              opacity: _fadeAnimation,
-                              child: Container(
-                                width: 180,
-                                height: 180,
-                                child: Image.asset(
-                                  'assets/images/Logo-02.png',
-                                  fit: BoxFit.contain,
+                            // Logo animado
+                            ScaleTransition(
+                              scale: _scaleAnimation,
+                              child: FadeTransition(
+                                opacity: _fadeAnimation,
+                                child: Container(
+                                  width: 180,
+                                  height: 180,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF60A5FA)
+                                            .withOpacity(0.5),
+                                        blurRadius: 40,
+                                        spreadRadius: 10,
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipOval(
+                                    child: Image.asset(
+                                      'assets/images/Logo-02.png',
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
 
-                            const SizedBox(height: 40),
+                            const SizedBox(height: 50),
 
-                            // Título
+                            // Título animado
                             SlideTransition(
                               position: _slideAnimation,
                               child: FadeTransition(
                                 opacity: _fadeAnimation,
                                 child: Column(
-                                  children: const [
-                                    Text(
-                                      'Bienvenido a',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.w600,
+                                  children: [
+                                    ShaderMask(
+                                      shaderCallback: (bounds) =>
+                                          const LinearGradient(
+                                        colors: [
+                                          Color(0xFF60A5FA),
+                                          Color(0xFF3B82F6),
+                                          Color(0xFF2563EB),
+                                        ],
+                                      ).createShader(bounds),
+                                      child: const Text(
+                                        'ExoAI',
+                                        style: TextStyle(
+                                          fontSize: 56,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                          letterSpacing: 2,
+                                        ),
                                       ),
                                     ),
+                                    const SizedBox(height: 16),
                                     Text(
-                                      'ExoAI',
+                                      'Descubre el Universo',
                                       style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.bold,
+                                        fontSize: 20,
+                                        color: Colors.white.withOpacity(0.9),
+                                        fontWeight: FontWeight.w300,
+                                        letterSpacing: 1.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color: const Color(0xFF60A5FA)
+                                              .withOpacity(0.3),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        '🚀 Exploración • 🌍 Exoplanetas • 🤖 IA',
+                                        style: TextStyle(
+                                          color: Color(0xFF60A5FA),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -227,149 +345,273 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                             ),
 
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 60),
 
-                            // Subtítulo
-                            FadeTransition(
-                              opacity: _fadeAnimation,
-                              child: const Text(
-                                'Explorando nuevos exoplanetas a través\nde la inteligencia artificial',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Color(0xFF8B9DB8),
-                                  fontSize: 14,
-                                  height: 1.5,
+                            // Botones animados
+                            SlideTransition(
+                              position: _slideAnimation,
+                              child: FadeTransition(
+                                opacity: _fadeAnimation,
+                                child: Column(
+                                  children: [
+                                    // Botón de Google principal
+                                    Container(
+                                      width: double.infinity,
+                                      constraints:
+                                          const BoxConstraints(maxWidth: 400),
+                                      child: ElevatedButton(
+                                        onPressed: _isLoading
+                                            ? null
+                                            : _loginWithGoogle,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.white,
+                                          foregroundColor:
+                                              const Color(0xFF1a1a2e),
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 18),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                          ),
+                                          elevation: 8,
+                                          shadowColor:
+                                              Colors.black.withOpacity(0.3),
+                                        ),
+                                        child: _isLoading
+                                            ? const SizedBox(
+                                                height: 24,
+                                                width: 24,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                  strokeWidth: 2.5,
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                          Color>(
+                                                    Color(0xFF1a1a2e),
+                                                  ),
+                                                ),
+                                              )
+                                            : Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Image.asset(
+                                                    'assets/images/google_logo.png',
+                                                    height: 24,
+                                                    errorBuilder: (context,
+                                                        error, stackTrace) {
+                                                      return const Icon(
+                                                        Icons.login,
+                                                        size: 24,
+                                                      );
+                                                    },
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  const Text(
+                                                    'Continuar con Google',
+                                                    style: TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      letterSpacing: 0.5,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                      ),
+                                    ),
+
+                                    const SizedBox(height: 20),
+
+                                    // Divider
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Container(
+                                            height: 1,
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: [
+                                                  Colors.transparent,
+                                                  Colors.white.withOpacity(0.3),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 16),
+                                          child: Text(
+                                            'o explora con',
+                                            style: TextStyle(
+                                              color:
+                                                  Colors.white.withOpacity(0.5),
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: Container(
+                                            height: 1,
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: [
+                                                  Colors.white.withOpacity(0.3),
+                                                  Colors.transparent,
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    const SizedBox(height: 20),
+
+                                    // Botones secundarios
+                                    Container(
+                                      constraints:
+                                          const BoxConstraints(maxWidth: 400),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: _buildSecondaryButton(
+                                              'NASA',
+                                              Icons.rocket_launch,
+                                              const Color(0xFF3B82F6),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: _buildSecondaryButton(
+                                              'Institucional',
+                                              Icons.school,
+                                              const Color(0xFF8B5CF6),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
-
-                            const SizedBox(height: 20),
                           ],
                         ),
                       ),
                     ),
                   ),
 
-                  // Botones fijos en la parte inferior
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 400),
-                      child: Padding(
-                        padding:
-                            const EdgeInsets.fromLTRB(24.0, 0.0, 24.0, 24.0),
-                        child: SlideTransition(
-                          position: _slideAnimation,
-                          child: FadeTransition(
-                            opacity: _fadeAnimation,
-                            child: Column(
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: ElevatedButton(
-                                        onPressed: () {},
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              const Color(0xFF1E4976),
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                              vertical: 16),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(30),
-                                          ),
-                                          elevation: 0,
-                                        ),
-                                        child: const Text(
-                                          'Nasa',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: ElevatedButton(
-                                        onPressed: () {},
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              const Color(0xFF1E4976),
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                              vertical: 16),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(30),
-                                          ),
-                                          elevation: 0,
-                                        ),
-                                        child: const Text(
-                                          'Institucional',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Botón Google con Firebase
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    onPressed:
-                                        _isLoading ? null : _loginWithGoogle,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF1570EF),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 16),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(30),
-                                      ),
-                                      elevation: 0,
-                                      disabledBackgroundColor:
-                                          const Color(0xFF1570EF)
-                                              .withOpacity(0.7),
-                                    ),
-                                    child: _isLoading
-                                        ? const SizedBox(
-                                            height: 20,
-                                            width: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                      Colors.white),
-                                            ),
-                                          )
-                                        : const Text(
-                                            'Google',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                              ],
+                  // Footer
+                  Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: Column(
+                        children: [
+                          Text(
+                            'Al continuar, aceptas nuestros Términos y Condiciones',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.5),
+                              fontSize: 11,
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.security,
+                                size: 14,
+                                color: const Color(0xFF60A5FA).withOpacity(0.7),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Conexión segura',
+                                style: TextStyle(
+                                  color:
+                                      const Color(0xFF60A5FA).withOpacity(0.7),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
+
+  Widget _buildSecondaryButton(String text, IconData icon, Color color) {
+    return OutlinedButton(
+      onPressed: () {
+        // Funcionalidad futura
+      },
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        side: BorderSide(
+          color: color.withOpacity(0.5),
+          width: 1.5,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Painter para las estrellas animadas
+class StarsPainter extends CustomPainter {
+  final double animation;
+
+  StarsPainter(this.animation);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    final random = math.Random(42);
+
+    for (int i = 0; i < 100; i++) {
+      final x = random.nextDouble() * size.width;
+      final y = random.nextDouble() * size.height;
+      final offset = math.sin((animation + i / 100) * 2 * math.pi);
+      final opacity = (0.3 + offset * 0.4).clamp(0.0, 1.0);
+
+      paint.color = Colors.white.withOpacity(opacity);
+
+      final radius = random.nextDouble() * 1.5 + 0.5;
+      canvas.drawCircle(Offset(x, y), radius, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(StarsPainter oldDelegate) => true;
 }
