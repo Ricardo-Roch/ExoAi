@@ -5,6 +5,7 @@ import 'datos_screen.dart';
 import 'ia_screen.dart';
 import 'visualizaciones_screen.dart';
 import 'profile_screen.dart';
+import 'community_screen.dart'; // AGREGADO
 import 'login_screen.dart';
 import '../Servicios/firebase_auth_service.dart';
 
@@ -88,7 +89,8 @@ class _HomeScreenState extends State<HomeScreen> {
       const ExoplanetScreen(),
       const IAScreen(),
       const VisualizacionesScreen(),
-      ProfileScreen(userName: userName),
+      const CommunityScreen(), // AGREGADO - Índice 4
+      ProfileScreen(userName: userName), // Ahora es índice 5
     ];
   }
 
@@ -244,9 +246,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         index: 3,
                       ),
                       _buildDrawerItem(
+                        icon: Icons.forum_rounded,
+                        title: 'Comunidad',
+                        index: 4,
+                      ),
+                      _buildDrawerItem(
                         icon: Icons.person_rounded,
                         title: 'Perfil',
-                        index: 4,
+                        index: 5,
                       ),
                     ],
                   ),
@@ -311,8 +318,8 @@ class _HomeScreenState extends State<HomeScreen> {
             currentIndex: _selectedIndex,
             selectedItemColor: const Color(0xFF60A5FA),
             unselectedItemColor: const Color(0xFF64748B),
-            selectedFontSize: 12,
-            unselectedFontSize: 11,
+            selectedFontSize: 11,
+            unselectedFontSize: 10,
             selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
             showUnselectedLabels: true,
             onTap: (index) {
@@ -325,7 +332,8 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildBottomNavItem(Icons.dataset_rounded, 'Datos', 1),
               _buildBottomNavItem(Icons.psychology_rounded, 'IA', 2),
               _buildBottomNavItem(Icons.visibility_rounded, 'Visual', 3),
-              _buildBottomNavItem(Icons.person_rounded, 'Perfil', 4),
+              _buildBottomNavItem(Icons.forum_rounded, 'Social', 4),
+              _buildBottomNavItem(Icons.person_rounded, 'Perfil', 5),
             ],
           ),
         ),
@@ -345,7 +353,7 @@ class _HomeScreenState extends State<HomeScreen> {
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon),
+        child: Icon(icon, size: 22),
       ),
       label: label,
     );
@@ -408,6 +416,8 @@ class _HomeScreenState extends State<HomeScreen> {
       case 3:
         return 'Visualizaciones';
       case 4:
+        return 'Comunidad';
+      case 5:
         return 'Perfil';
       default:
         return 'ExoAi';
@@ -425,6 +435,8 @@ class _HomeScreenState extends State<HomeScreen> {
       case 3:
         return Icons.visibility_rounded;
       case 4:
+        return Icons.forum_rounded;
+      case 5:
         return Icons.person_rounded;
       default:
         return Icons.apps;

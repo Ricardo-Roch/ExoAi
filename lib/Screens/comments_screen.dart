@@ -154,8 +154,8 @@ class _CommentsScreenState extends State<CommentsScreen> {
                   itemCount: comments.length,
                   itemBuilder: (context, index) {
                     final comment = comments[index];
-                    final isOwner = comment.userId ==
-                        _communityService.currentUser?.uid;
+                    final isOwner =
+                        comment.userId == _communityService.currentUser?.uid;
 
                     return ListTile(
                       leading: CircleAvatar(
