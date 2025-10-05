@@ -16,21 +16,33 @@ class FirebaseAuthService {
   Future<User?> signInWithGoogle() async {
     try {
       if (kIsWeb) {
-        final GoogleAuthProvider googleProvider = GoogleAuthProvider();
-        final UserCredential userCredential = await _auth.signInWithPopup(
-          googleProvider,
-        );
+        // EN WEB: Usar REDIRECT en lugar de POPUP (soluciona CORS)
+        print('🌐 Iniciando Google Sign-In en WEB con REDIRECT');
 
-        // Crear/actualizar perfil de usuario
-        if (userCredential.user != null) {
+        final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+
+        // IMPORTANTE: Usar signInWithRedirect en lugar de signInWithPopup
+        await _auth.signInWithRedirect(googleProvider);
+
+        // Después del redirect, obtener el resultado
+        final UserCredential? userCredential = await _auth.getRedirectResult();
+
+        if (userCredential != null && userCredential.user != null) {
+          print('✅ Login exitoso: ${userCredential.user!.email}');
           await _createUserProfile(userCredential.user!);
+          return userCredential.user;
         }
 
-        return userCredential.user;
+        // Si no hay resultado aún, esperar al siguiente ciclo
+        return null;
       } else {
+        // EN MÓVIL: Usar el método normal
+        print('📱 Iniciando Google Sign-In en MÓVIL');
+
         final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
         if (googleUser == null) {
+          print('⚠️ Usuario canceló el login');
           return null;
         }
 
@@ -46,35 +58,46 @@ class FirebaseAuthService {
           credential,
         );
 
-        // Crear/actualizar perfil de usuario
         if (userCredential.user != null) {
+          print('✅ Login exitoso: ${userCredential.user!.email}');
           await _createUserProfile(userCredential.user!);
         }
 
         return userCredential.user;
       }
     } catch (e) {
-      print('Error en inicio de sesion con Google: $e');
+      print('❌ Error en inicio de sesion con Google: $e');
       return null;
     }
   }
 
   Future<void> _createUserProfile(User user) async {
-    final userRef = _firestore.collection('users').doc(user.uid);
-    final userDoc = await userRef.get();
+    try {
+      final userRef = _firestore.collection('users').doc(user.uid);
+      final userDoc = await userRef.get();
 
-    if (!userDoc.exists) {
-      await userRef.set({
-        'displayName': user.displayName ?? 'Usuario',
-        'email': user.email ?? '',
-        'photoURL': user.photoURL,
-        'bio': '',
-        'followers': [],
-        'following': [],
-        'postsCount': 0,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      if (!userDoc.exists) {
+        print('📝 Creando perfil de usuario para: ${user.email}');
+
+        await userRef.set({
+          'displayName': user.displayName ?? 'Usuario',
+          'email': user.email ?? '',
+          'photoURL': user.photoURL,
+          'bio': '',
+          'followers': [],
+          'following': [],
+          'postsCount': 0,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        print('✅ Perfil creado exitosamente');
+      } else {
+        print('✅ Perfil ya existe');
+      }
+    } catch (e) {
+      print('⚠️ Error al crear perfil (no crítico): $e');
+      // No lanzar error - el usuario puede seguir usando la app
     }
   }
 
@@ -84,8 +107,9 @@ class FirebaseAuthService {
         await _googleSignIn.signOut();
       }
       await _auth.signOut();
+      print('✅ Sesión cerrada correctamente');
     } catch (e) {
-      print('Error al cerrar sesion: $e');
+      print('❌ Error al cerrar sesion: $e');
     }
   }
 
