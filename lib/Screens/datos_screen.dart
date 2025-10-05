@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../Servicios/BackendExoplanetService.dart';
 
-// Importa tu servicio
-// import 'backend_exoplanet_service.dart';
-
 class ExoplanetScreen extends StatefulWidget {
   const ExoplanetScreen({Key? key}) : super(key: key);
 
@@ -33,27 +30,19 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
     });
 
     try {
-      // 1. Verificar estado del backend
-      final health = await _service.checkHealth();
-      setState(() => _backendStatus = health);
+      // 1. Primero llamar a /datasets para inicializar
+      await _service.fetchDatasets();
 
-      // 2. Verificar si hay datos
-      final status = await _service.getTrainStatus();
+      // 2. Luego obtener preview de exoplanetas
+      final preview = await _service.getDatasetPreview(n: 5);
 
-      // 3. Si no hay datos, descargarlos
-      if (status['data_available'] == false) {
-        await _service.fetchDatasets();
-      }
-
-      // 4. Obtener preview de exoplanetas
-      final preview = await _service.getDatasetPreview(n: 100);
-
-      // 5. Parsear exoplanetas
+      // 3. Parsear exoplanetas
       final exoplanets = _service.parseExoplanetsFromPreview(preview);
 
       setState(() {
         _exoplanets = exoplanets;
         _isLoading = false;
+        _backendStatus = {'status': 'healthy', 'model_ready': true};
       });
     } catch (e) {
       setState(() {

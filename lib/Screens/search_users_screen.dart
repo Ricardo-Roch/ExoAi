@@ -1,4 +1,3 @@
-// lib/Screens/search_users_screen.dart
 import 'package:flutter/material.dart';
 import '../Servicios/user_service.dart';
 import '../models/user_model.dart';
@@ -80,35 +79,60 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E293B),
-        title: const Text('Buscar Usuarios'),
+        elevation: 0,
+        title: const Text(
+          'Buscar Usuarios',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: Column(
         children: [
           // Barra de búsqueda
-          Padding(
-            padding: const EdgeInsets.all(16),
+          Container(
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF1E293B),
+                  Color(0xFF0F172A),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF334155),
+                width: 1,
+              ),
+            ),
             child: TextField(
               controller: _searchController,
               onChanged: _searchUsers,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'Buscar usuarios...',
-                hintStyle: TextStyle(color: Colors.grey[600]),
+                hintStyle: const TextStyle(color: Color(0xFF64748B)),
                 prefixIcon: const Icon(Icons.search, color: Color(0xFF60A5FA)),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, color: Colors.grey),
+                        icon: const Icon(Icons.clear, color: Color(0xFF94A3B8)),
                         onPressed: () {
                           _searchController.clear();
                           _searchUsers('');
                         },
                       )
                     : null,
-                filled: true,
-                fillColor: const Color(0xFF1E293B),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
                 ),
               ),
             ),
@@ -125,7 +149,11 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
 
   Widget _buildContent() {
     if (_isSearching) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF60A5FA),
+        ),
+      );
     }
 
     if (_searchController.text.isNotEmpty) {
@@ -134,17 +162,44 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.search_off,
-                size: 64,
-                color: Colors.grey[600],
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF60A5FA).withOpacity(0.1),
+                      const Color(0xFF60A5FA).withOpacity(0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFF60A5FA).withOpacity(0.3),
+                    width: 2,
+                  ),
+                ),
+                child: Icon(
+                  Icons.search_off,
+                  size: 64,
+                  color: const Color(0xFF60A5FA).withOpacity(0.6),
+                ),
               ),
-              const SizedBox(height: 16),
-              Text(
+              const SizedBox(height: 24),
+              const Text(
                 'No se encontraron usuarios',
                 style: TextStyle(
-                  color: Colors.grey[400],
-                  fontSize: 16,
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Intenta con otro término de búsqueda',
+                style: TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 14,
                 ),
               ),
             ],
@@ -153,6 +208,7 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
       }
 
       return ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: _searchResults.length,
         itemBuilder: (context, index) {
           return _buildUserTile(_searchResults[index]);
@@ -164,42 +220,91 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Text(
-            'Usuarios sugeridos',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF60A5FA).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.people_outline,
+                  color: Color(0xFF60A5FA),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Usuarios sugeridos',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
         ),
         Expanded(
           child: _isLoadingSuggestions
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(
+                  child: CircularProgressIndicator(
+                    color: Color(0xFF60A5FA),
+                  ),
+                )
               : _suggestedUsers.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            Icons.people_outline,
-                            size: 64,
-                            color: Colors.grey[600],
+                          Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  const Color(0xFF60A5FA).withOpacity(0.1),
+                                  const Color(0xFF60A5FA).withOpacity(0.05),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: const Color(0xFF60A5FA).withOpacity(0.3),
+                                width: 2,
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.people_outline,
+                              size: 64,
+                              color: const Color(0xFF60A5FA).withOpacity(0.6),
+                            ),
                           ),
-                          const SizedBox(height: 16),
-                          Text(
+                          const SizedBox(height: 24),
+                          const Text(
                             'No hay usuarios sugeridos',
                             style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 16,
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Usa la búsqueda para encontrar usuarios',
+                            style: TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 14,
                             ),
                           ),
                         ],
                       ),
                     )
                   : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       itemCount: _suggestedUsers.length,
                       itemBuilder: (context, index) {
                         return _buildUserTile(_suggestedUsers[index]);
@@ -213,120 +318,217 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
   Widget _buildUserTile(UserModel user) {
     final currentUserId = _userService.currentUser?.uid;
 
-    return ListTile(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => UserProfileScreen(userId: user.uid),
-          ),
-        );
-      },
-      leading: Container(
-        padding: const EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: const Color(0xFF60A5FA),
-            width: 2,
-          ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1E293B),
+            Color(0xFF0F172A),
+          ],
         ),
-        child: CircleAvatar(
-          radius: 25,
-          backgroundColor: const Color(0xFF1E293B),
-          backgroundImage:
-              user.photoURL != null ? NetworkImage(user.photoURL!) : null,
-          child: user.photoURL == null
-              ? Text(
-                  user.displayName[0].toUpperCase(),
-                  style: const TextStyle(
-                    color: Color(0xFF60A5FA),
-                    fontWeight: FontWeight.bold,
-                  ),
-                )
-              : null,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF334155),
+          width: 1,
         ),
       ),
-      title: Text(
-        user.displayName,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (user.bio != null && user.bio!.isNotEmpty)
-            Text(
-              user.bio!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF94A3B8),
-                fontSize: 12,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => UserProfileScreen(userId: user.uid),
               ),
-            ),
-          Text(
-            '${user.followersCount} seguidores',
-            style: const TextStyle(
-              color: Color(0xFF64748B),
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
-      trailing: currentUserId != user.uid
-          ? StreamBuilder<UserModel?>(
-              stream: _userService.getUserProfileStream(user.uid),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const SizedBox(
-                    width: 90,
-                    height: 36,
-                    child: Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFF60A5FA),
+                      width: 2,
                     ),
-                  );
-                }
+                  ),
+                  child: CircleAvatar(
+                    radius: 28,
+                    backgroundColor: const Color(0xFF1E293B),
+                    backgroundImage: user.photoURL != null
+                        ? NetworkImage(user.photoURL!)
+                        : null,
+                    child: user.photoURL == null
+                        ? Text(
+                            user.displayName[0].toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 20,
+                              color: Color(0xFF60A5FA),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user.displayName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      if (user.bio != null && user.bio!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          user.bio!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.people,
+                            size: 14,
+                            color: const Color(0xFF64748B),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${user.followersCount} seguidores',
+                            style: const TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                if (currentUserId != user.uid)
+                  StreamBuilder<UserModel?>(
+                    stream: _userService.getUserProfileStream(user.uid),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return SizedBox(
+                          width: 90,
+                          height: 36,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF334155),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Center(
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
 
-                final userModel = snapshot.data!;
-                final isFollowing = userModel.isFollowedBy(currentUserId ?? '');
+                      final userModel = snapshot.data!;
+                      final isFollowing =
+                          userModel.isFollowedBy(currentUserId ?? '');
 
-                return ElevatedButton(
-                  onPressed: () async {
-                    if (isFollowing) {
-                      await _userService.unfollowUser(user.uid);
-                    } else {
-                      await _userService.followUser(user.uid);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isFollowing
-                        ? const Color(0xFF334155)
-                        : const Color(0xFF60A5FA),
-                    foregroundColor: Colors.white,
+                      return ElevatedButton(
+                        onPressed: () async {
+                          if (isFollowing) {
+                            await _userService.unfollowUser(user.uid);
+                          } else {
+                            await _userService.followUser(user.uid);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isFollowing
+                              ? const Color(0xFF334155)
+                              : const Color(0xFF60A5FA),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          minimumSize: const Size(90, 36),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isFollowing
+                                  ? Icons.person_remove
+                                  : Icons.person_add,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              isFollowing ? 'Siguiendo' : 'Seguir',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  )
+                else
+                  Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
-                      vertical: 8,
+                      vertical: 10,
                     ),
-                    minimumSize: const Size(90, 36),
-                    shape: RoundedRectangleBorder(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF60A5FA).withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF60A5FA),
+                        width: 1,
+                      ),
+                    ),
+                    child: const Text(
+                      'Tú',
+                      style: TextStyle(
+                        color: Color(0xFF60A5FA),
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  child: Text(
-                    isFollowing ? 'Siguiendo' : 'Seguir',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                );
-              },
-            )
-          : null,
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

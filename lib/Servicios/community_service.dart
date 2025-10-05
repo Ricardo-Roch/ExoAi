@@ -5,6 +5,11 @@ import '../models/post_model.dart';
 import '../models/comment_model.dart';
 
 class CommunityService {
+  // Singleton pattern para evitar múltiples instancias
+  static final CommunityService _instance = CommunityService._internal();
+  factory CommunityService() => _instance;
+  CommunityService._internal();
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -30,7 +35,7 @@ class CommunityService {
       'userPhoto': user.photoURL,
       'content': content,
       'imageUrl': imageUrl,
-      'likes': [],
+      'likedBy': [], // Cambiado de 'likes' a 'likedBy' para consistencia
       'likesCount': 0,
       'commentsCount': 0,
       'createdAt': FieldValue.serverTimestamp(),
@@ -58,34 +63,38 @@ class CommunityService {
   }
 
   // Obtener posts de usuarios que sigue (feed personalizado)
-  // VERSIÓN SIMPLIFICADA SIN ÍNDICE COMPUESTO
   Stream<List<Post>> getFollowingPosts() {
     final user = currentUser;
     if (user == null) return Stream.value([]);
 
-    // Primero obtenemos todos los posts y luego filtramos en memoria
     return _firestore
         .collection('posts')
         .orderBy('createdAt', descending: true)
         .limit(100)
         .snapshots()
         .asyncMap((postsSnapshot) async {
-      // Obtener la lista de usuarios que sigue
-      final userDoc = await _firestore.collection('users').doc(user.uid).get();
-      final following = List<String>.from(userDoc.data()?['following'] ?? []);
+      try {
+        // Obtener la lista de usuarios que sigue
+        final userDoc =
+            await _firestore.collection('users').doc(user.uid).get();
+        final following = List<String>.from(userDoc.data()?['following'] ?? []);
 
-      // Agregar el propio usuario
-      following.add(user.uid);
+        // Agregar el propio usuario
+        following.add(user.uid);
 
-      if (following.isEmpty) return <Post>[];
+        if (following.isEmpty) return <Post>[];
 
-      // Filtrar posts en memoria
-      final posts = postsSnapshot.docs
-          .map((doc) => Post.fromFirestore(doc))
-          .where((post) => following.contains(post.userId))
-          .toList();
+        // Filtrar posts en memoria
+        final posts = postsSnapshot.docs
+            .map((doc) => Post.fromFirestore(doc))
+            .where((post) => following.contains(post.userId))
+            .toList();
 
-      return posts;
+        return posts;
+      } catch (e) {
+        print('Error en getFollowingPosts: $e');
+        return <Post>[];
+      }
     });
   }
 
@@ -101,30 +110,43 @@ class CommunityService {
     });
   }
 
-  // Dar like a un post
+  // Dar like a un post - OPTIMIZADO CON TRANSACTION
   Future<void> toggleLike(String postId) async {
     final user = currentUser;
     if (user == null) return;
 
     final postRef = _firestore.collection('posts').doc(postId);
-    final postDoc = await postRef.get();
 
-    if (!postDoc.exists) return;
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final postDoc = await transaction.get(postRef);
 
-    final likes = List<String>.from(postDoc.data()?['likes'] ?? []);
+        if (!postDoc.exists) {
+          throw Exception('Post no existe');
+        }
 
-    if (likes.contains(user.uid)) {
-      // Quitar like
-      await postRef.update({
-        'likes': FieldValue.arrayRemove([user.uid]),
-        'likesCount': FieldValue.increment(-1),
+        final data = postDoc.data()!;
+        final likedBy =
+            List<String>.from(data['likedBy'] ?? data['likes'] ?? []);
+        final likesCount = (data['likesCount'] ?? 0) as int;
+
+        if (likedBy.contains(user.uid)) {
+          // Quitar like
+          transaction.update(postRef, {
+            'likedBy': FieldValue.arrayRemove([user.uid]),
+            'likesCount': likesCount > 0 ? likesCount - 1 : 0,
+          });
+        } else {
+          // Agregar like
+          transaction.update(postRef, {
+            'likedBy': FieldValue.arrayUnion([user.uid]),
+            'likesCount': likesCount + 1,
+          });
+        }
       });
-    } else {
-      // Agregar like
-      await postRef.update({
-        'likes': FieldValue.arrayUnion([user.uid]),
-        'likesCount': FieldValue.increment(1),
-      });
+    } catch (e) {
+      print('Error en toggleLike: $e');
+      rethrow;
     }
   }
 
@@ -133,10 +155,14 @@ class CommunityService {
     final user = currentUser;
     if (user == null) return;
 
-    final postDoc = await _firestore.collection('posts').doc(postId).get();
+    try {
+      final postDoc = await _firestore.collection('posts').doc(postId).get();
 
-    // Verificar que el usuario sea el dueño del post
-    if (postDoc.data()?['userId'] == user.uid) {
+      // Verificar que el usuario sea el dueño del post
+      if (postDoc.data()?['userId'] != user.uid) {
+        throw Exception('No tienes permiso para eliminar este post');
+      }
+
       final batch = _firestore.batch();
 
       // Eliminar comentarios del post
@@ -158,6 +184,9 @@ class CommunityService {
       });
 
       await batch.commit();
+    } catch (e) {
+      print('Error en deletePost: $e');
+      rethrow;
     }
   }
 
@@ -171,26 +200,31 @@ class CommunityService {
     final user = currentUser;
     if (user == null) throw Exception('Usuario no autenticado');
 
-    final batch = _firestore.batch();
+    try {
+      final batch = _firestore.batch();
 
-    // Agregar comentario
-    final commentRef = _firestore.collection('comments').doc();
-    batch.set(commentRef, {
-      'postId': postId,
-      'userId': user.uid,
-      'userName': user.displayName ?? 'Usuario',
-      'userPhoto': user.photoURL,
-      'content': content,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+      // Agregar comentario
+      final commentRef = _firestore.collection('comments').doc();
+      batch.set(commentRef, {
+        'postId': postId,
+        'userId': user.uid,
+        'userName': user.displayName ?? 'Usuario',
+        'userPhoto': user.photoURL,
+        'content': content,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
 
-    // Incrementar contador de comentarios en el post
-    final postRef = _firestore.collection('posts').doc(postId);
-    batch.update(postRef, {
-      'commentsCount': FieldValue.increment(1),
-    });
+      // Incrementar contador de comentarios en el post
+      final postRef = _firestore.collection('posts').doc(postId);
+      batch.update(postRef, {
+        'commentsCount': FieldValue.increment(1),
+      });
 
-    await batch.commit();
+      await batch.commit();
+    } catch (e) {
+      print('Error en addComment: $e');
+      rethrow;
+    }
   }
 
   // Obtener comentarios de un post
@@ -202,6 +236,9 @@ class CommunityService {
         .snapshots()
         .map((snapshot) {
       return snapshot.docs.map((doc) => Comment.fromFirestore(doc)).toList();
+    }).handleError((error) {
+      print('Error en getComments: $error');
+      return <Comment>[];
     });
   }
 
@@ -210,11 +247,15 @@ class CommunityService {
     final user = currentUser;
     if (user == null) return;
 
-    final commentDoc =
-        await _firestore.collection('comments').doc(commentId).get();
+    try {
+      final commentDoc =
+          await _firestore.collection('comments').doc(commentId).get();
 
-    // Verificar que el usuario sea el dueño del comentario
-    if (commentDoc.data()?['userId'] == user.uid) {
+      // Verificar que el usuario sea el dueño del comentario
+      if (commentDoc.data()?['userId'] != user.uid) {
+        throw Exception('No tienes permiso para eliminar este comentario');
+      }
+
       final batch = _firestore.batch();
 
       batch.delete(_firestore.collection('comments').doc(commentId));
@@ -225,6 +266,9 @@ class CommunityService {
       });
 
       await batch.commit();
+    } catch (e) {
+      print('Error en deleteComment: $e');
+      rethrow;
     }
   }
 
@@ -235,15 +279,90 @@ class CommunityService {
     final user = currentUser;
     if (user == null) return;
 
-    await _firestore.collection('users').doc(user.uid).set({
-      'displayName': user.displayName ?? 'Usuario',
-      'email': user.email ?? '',
-      'photoURL': user.photoURL,
-      'followers': [],
-      'following': [],
-      'postsCount': 0,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    try {
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+
+      if (userDoc.exists) {
+        // Si el usuario ya existe, solo actualizar campos específicos
+        await _firestore.collection('users').doc(user.uid).update({
+          'displayName': user.displayName ?? 'Usuario',
+          'photoURL': user.photoURL,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        // Si es un usuario nuevo, crear el documento completo
+        await _firestore.collection('users').doc(user.uid).set({
+          'displayName': user.displayName ?? 'Usuario',
+          'email': user.email ?? '',
+          'photoURL': user.photoURL,
+          'followers': [],
+          'following': [],
+          'postsCount': 0,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (e) {
+      print('Error en saveUserData: $e');
+      rethrow;
+    }
+  }
+
+  // Obtener datos de un usuario
+  Future<Map<String, dynamic>?> getUserData(String userId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      return userDoc.data();
+    } catch (e) {
+      print('Error en getUserData: $e');
+      return null;
+    }
+  }
+
+  // Seguir/dejar de seguir usuario
+  Future<void> toggleFollow(String targetUserId) async {
+    final user = currentUser;
+    if (user == null) return;
+    if (user.uid == targetUserId) return; // No puedes seguirte a ti mismo
+
+    try {
+      final currentUserRef = _firestore.collection('users').doc(user.uid);
+      final targetUserRef = _firestore.collection('users').doc(targetUserId);
+
+      await _firestore.runTransaction((transaction) async {
+        final currentUserDoc = await transaction.get(currentUserRef);
+
+        if (!currentUserDoc.exists) return;
+
+        final following =
+            List<String>.from(currentUserDoc.data()?['following'] ?? []);
+
+        if (following.contains(targetUserId)) {
+          // Dejar de seguir
+          transaction.update(currentUserRef, {
+            'following': FieldValue.arrayRemove([targetUserId]),
+          });
+          transaction.update(targetUserRef, {
+            'followers': FieldValue.arrayRemove([user.uid]),
+          });
+        } else {
+          // Seguir
+          transaction.update(currentUserRef, {
+            'following': FieldValue.arrayUnion([targetUserId]),
+          });
+          transaction.update(targetUserRef, {
+            'followers': FieldValue.arrayUnion([user.uid]),
+          });
+        }
+      });
+    } catch (e) {
+      print('Error en toggleFollow: $e');
+      rethrow;
+    }
+  }
+
+  // Dispose para limpiar recursos si es necesario
+  void dispose() {
+    // Aquí puedes cancelar listeners si los tienes
   }
 }
