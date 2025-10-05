@@ -1301,6 +1301,7 @@ class _HomeContentState extends State<HomeContent> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             icon,
@@ -1323,8 +1324,9 @@ class _HomeContentState extends State<HomeContent> {
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
+              softWrap: true,
             ),
           ),
         ],

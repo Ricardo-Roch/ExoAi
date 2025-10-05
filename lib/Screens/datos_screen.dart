@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../Servicios/BackendExoplanetService.dart';
 import '../Servicios/gemini_service.dart';
 
@@ -19,6 +20,7 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   Map<String, dynamic>? _backendStatus;
+  late final WebViewController _webViewController;
 
   // Datos fijos de respaldo
   final List<ExoplanetData> _fallbackExoplanets = [
@@ -77,7 +79,16 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
   @override
   void initState() {
     super.initState();
+    _initWebView();
     _loadData();
+  }
+
+  void _initWebView() {
+    _webViewController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0x00000000))
+      ..loadRequest(
+          Uri.parse('https://eyes.nasa.gov/apps/solar-system/#/home'));
   }
 
   Future<void> _loadData() async {
@@ -119,6 +130,112 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
     }
   }
 
+  void _showNasaEyes() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+            maxWidth: MediaQuery.of(context).size.width * 0.95,
+          ),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF1E293B),
+                Color(0xFF0F172A),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: const Color(0xFF60A5FA),
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF60A5FA).withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF60A5FA).withOpacity(0.1),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(18),
+                    topRight: Radius.circular(18),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF60A5FA).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.public,
+                        color: Color(0xFF60A5FA),
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'NASA Eyes',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'Solar System Explorer',
+                            style: TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+              // WebView
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(18),
+                    bottomRight: Radius.circular(18),
+                  ),
+                  child: WebViewWidget(controller: _webViewController),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _analyzeExoplanet(ExoplanetData exoplanet) async {
     showDialog(
       context: context,
@@ -156,10 +273,10 @@ Insolación: ${exoplanet.insolation?.toStringAsFixed(2) ?? 'N/A'} S⊕
 Radio estelar: ${exoplanet.srad?.toStringAsFixed(2) ?? 'N/A'} R☉
 
 Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
-1. Lo más notable de este exoplaneta
-2. Su potencial para albergar vida (si aplica)
-3. Comparación con la Tierra
-4. Características únicas o interesantes
+1.⁠ ⁠Lo más notable de este exoplaneta
+2.⁠ ⁠Su potencial para albergar vida (si aplica)
+3.⁠ ⁠Comparación con la Tierra
+4.⁠ ⁠Características únicas o interesantes
 ''';
 
       // Llamar a Gemini con el prompt personalizado
@@ -322,29 +439,54 @@ Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
                       height: 40,
                       width: 40,
                     ),
-                    Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: const Color(0xFF60A5FA),
-                          width: 2,
+                    Row(
+                      children: [
+                        // Botón NASA Eyes
+                        Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFF60A5FA),
+                              width: 2,
+                            ),
+                          ),
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.public,
+                              color: Color(0xFF60A5FA),
+                              size: 24,
+                            ),
+                            onPressed: _showNasaEyes,
+                            tooltip: 'NASA Eyes on Solar System',
+                          ),
                         ),
-                      ),
-                      child: CircleAvatar(
-                        radius: 18,
-                        backgroundColor: const Color(0xFF1E293B),
-                        backgroundImage: user?.photoURL != null
-                            ? NetworkImage(user!.photoURL!)
-                            : null,
-                        child: user?.photoURL == null
-                            ? const Icon(
-                                Icons.person,
-                                size: 20,
-                                color: Color(0xFF60A5FA),
-                              )
-                            : null,
-                      ),
+                        // Avatar del usuario
+                        Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFF60A5FA),
+                              width: 2,
+                            ),
+                          ),
+                          child: CircleAvatar(
+                            radius: 18,
+                            backgroundColor: const Color(0xFF1E293B),
+                            backgroundImage: user?.photoURL != null
+                                ? NetworkImage(user!.photoURL!)
+                                : null,
+                            child: user?.photoURL == null
+                                ? const Icon(
+                                    Icons.person,
+                                    size: 20,
+                                    color: Color(0xFF60A5FA),
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -391,7 +533,7 @@ Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
                   const Text(
                     'Base de Datos de Exoplanetas',
                     style: TextStyle(
-                      fontSize: 28,
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
@@ -407,7 +549,8 @@ Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
                     ),
                   const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 16),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
@@ -424,26 +567,32 @@ Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
                       ),
                     ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _buildStatItem(
-                          'Total',
-                          '${_exoplanets.length}',
-                          Icons.explore,
+                        Expanded(
+                          child: _buildStatItem(
+                            'Total',
+                            '${_exoplanets.length}',
+                            Icons.explore,
+                          ),
                         ),
-                        _buildStatItem(
-                          'Backend',
-                          _backendStatus?['status'] == 'healthy'
-                              ? 'OK'
-                              : 'Local',
-                          Icons.cloud,
+                        Expanded(
+                          child: _buildStatItem(
+                            'Backend',
+                            _backendStatus?['status'] == 'healthy'
+                                ? 'OK'
+                                : 'Local',
+                            Icons.cloud,
+                          ),
                         ),
-                        _buildStatItem(
-                          'Modelo',
-                          _backendStatus?['model_ready'] == true
-                              ? 'Listo'
-                              : 'No',
-                          Icons.memory,
+                        Expanded(
+                          child: _buildStatItem(
+                            'Modelo',
+                            _backendStatus?['model_ready'] == true
+                                ? 'Listo'
+                                : 'No',
+                            Icons.memory,
+                          ),
                         ),
                       ],
                     ),
@@ -474,26 +623,41 @@ Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
   }
 
   Widget _buildStatItem(String label, String value, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, color: const Color(0xFF60A5FA), size: 32),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: const Color(0xFF60A5FA), size: 24),
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
           ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFF94A3B8),
-            fontSize: 12,
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF94A3B8),
+                fontSize: 10,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -515,91 +679,114 @@ Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
           width: 1,
         ),
       ),
-      child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        title: Text(
-          exoplanet.name,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          childrenPadding: EdgeInsets.zero,
+          title: Text(
+            exoplanet.name,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-        ),
-        subtitle: Text(
-          'Radio: ${exoplanet.radius?.toStringAsFixed(2) ?? 'N/A'} R⊕',
-          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
-        ),
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF60A5FA).withOpacity(0.2),
-            borderRadius: BorderRadius.circular(8),
+          subtitle: Text(
+            'Radio: ${exoplanet.radius?.toStringAsFixed(2) ?? 'N/A'} R⊕',
+            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
           ),
-          child: const Icon(
-            Icons.public,
-            color: Color(0xFF60A5FA),
-          ),
-        ),
-        iconColor: const Color(0xFF60A5FA),
-        collapsedIconColor: const Color(0xFF60A5FA),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
+          leading: Container(
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.2),
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(12),
-                bottomRight: Radius.circular(12),
+              color: const Color(0xFF60A5FA).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.public,
+              color: Color(0xFF60A5FA),
+              size: 20,
+            ),
+          ),
+          iconColor: const Color(0xFF60A5FA),
+          collapsedIconColor: const Color(0xFF60A5FA),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.2),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+              ),
+              child: Column(
+                children: [
+                  _buildDataRow('Período Orbital',
+                      '${exoplanet.period?.toStringAsFixed(2) ?? 'N/A'} días'),
+                  _buildDataRow('Duración Tránsito',
+                      '${exoplanet.duration?.toStringAsFixed(2) ?? 'N/A'} h'),
+                  _buildDataRow('Profundidad',
+                      '${exoplanet.depth?.toStringAsFixed(4) ?? 'N/A'}'),
+                  _buildDataRow('Insolación',
+                      '${exoplanet.insolation?.toStringAsFixed(2) ?? 'N/A'} S⊕'),
+                  _buildDataRow('Temp. Estelar',
+                      '${exoplanet.teff?.toStringAsFixed(0) ?? 'N/A'} K'),
+                  _buildDataRow('Radio Estelar',
+                      '${exoplanet.srad?.toStringAsFixed(2) ?? 'N/A'} R☉'),
+                  const SizedBox(height: 16),
+
+                  // Botón de Gemini - RESPONSIVO MEJORADO
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => _analyzeExoplanet(exoplanet),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF60A5FA),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 4,
+                            shadowColor:
+                                const Color(0xFF60A5FA).withOpacity(0.5),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.auto_awesome, size: 18),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  'Analizar con Gemini AI',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
-            child: Column(
-              children: [
-                _buildDataRow('Período Orbital',
-                    '${exoplanet.period?.toStringAsFixed(2) ?? 'N/A'} días'),
-                _buildDataRow('Duración Tránsito',
-                    '${exoplanet.duration?.toStringAsFixed(2) ?? 'N/A'} h'),
-                _buildDataRow('Profundidad',
-                    '${exoplanet.depth?.toStringAsFixed(4) ?? 'N/A'}'),
-                _buildDataRow('Insolación',
-                    '${exoplanet.insolation?.toStringAsFixed(2) ?? 'N/A'} S⊕'),
-                _buildDataRow('Temp. Estelar',
-                    '${exoplanet.teff?.toStringAsFixed(0) ?? 'N/A'} K'),
-                _buildDataRow('Radio Estelar',
-                    '${exoplanet.srad?.toStringAsFixed(2) ?? 'N/A'} R☉'),
-                const SizedBox(height: 16),
-
-                // Botón de Gemini
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _analyzeExoplanet(exoplanet),
-                    icon: const Icon(Icons.auto_awesome, size: 20),
-                    label: const Text(
-                      'Analizar con Gemini AI',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF60A5FA),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      elevation: 4,
-                      shadowColor: const Color(0xFF60A5FA).withOpacity(0.5),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -610,19 +797,27 @@ Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF94A3B8),
-              fontSize: 13,
+          Flexible(
+            flex: 2,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF94A3B8),
+                fontSize: 13,
+              ),
             ),
           ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+          const SizedBox(width: 8),
+          Flexible(
+            flex: 2,
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.end,
             ),
           ),
         ],

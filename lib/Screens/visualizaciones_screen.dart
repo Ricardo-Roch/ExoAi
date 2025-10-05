@@ -42,14 +42,12 @@ class Exoplanet {
     if (temperature < 150) {
       return Color.lerp(Color(0xFF2C3E50), Color(0xFF34495E), 0.5)!;
     }
-
     if (temperature < 273) {
       if (type.contains("Rocky")) {
         return Color.lerp(Color(0xFF7F8C8D), Color(0xFFBDC3C7), 0.6)!;
       }
       return Color.lerp(Color(0xFF3498DB), Color(0xFFECF0F1), 0.7)!;
     }
-
     if (temperature >= 273 && temperature < 373) {
       if (type == "Ocean world") {
         return Color(0xFF1E90FF);
@@ -61,36 +59,30 @@ class Exoplanet {
         return Color.lerp(Color(0xFF8B4513), Color(0xFFCD853F), 0.5)!;
       }
     }
-
     if (temperature >= 373 && temperature < 600) {
       if (type.contains("Neptune")) {
         return Color.lerp(Color(0xFF9B59B6), Color(0xFF3498DB), 0.6)!;
       }
       return Color.lerp(Color(0xFFE67E22), Color(0xFFF39C12), 0.5)!;
     }
-
     if (temperature >= 600 && temperature < 1000) {
       if (type.contains("Neptune") || type.contains("Mini")) {
         return Color.lerp(Color(0xFF8E44AD), Color(0xFFE74C3C), 0.4)!;
       }
       return Color.lerp(Color(0xFFE74C3C), Color(0xFFF39C12), 0.6)!;
     }
-
     if (temperature >= 1000 && temperature < 1500) {
       if (type.contains("Jupiter") && radius > 10) {
         return Color(0xFF0047AB);
       }
       return Color.lerp(Color(0xFFFF4500), Color(0xFFFF6347), 0.5)!;
     }
-
     if (temperature >= 1500) {
       return Color.lerp(Color(0xFFFFFFFF), Color(0xFFFFD700), 0.3)!;
     }
-
     if (type.contains("Gas") || type.contains("Jupiter")) {
       return Color(0xFF4169E1);
     }
-
     return Color(0xFF95A5A6);
   }
 }
@@ -189,7 +181,6 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
       final exoplanetsData = _service.parseExoplanetsFromPreview(preview);
 
       if (exoplanetsData.isNotEmpty) {
-        // Convertir ExoplanetData a Exoplanet con clasificación
         List<Exoplanet> loadedExoplanets = [];
         for (var data in exoplanetsData.take(10)) {
           final type = _classifyExoplanet(data);
@@ -199,7 +190,7 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
             name: data.name,
             radiusEarth: data.radius ?? 1.0,
             temperatureK: temp,
-            distanceLy: 100, // Distancia estimada
+            distanceLy: 100,
             type: type,
             starType: _classifyStarType(data.teff ?? 5778),
             description: _generateDescription(data, type),
@@ -252,8 +243,6 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
   int _estimateTemperature(ExoplanetData data) {
     final teff = data.teff ?? 5778;
     final insol = data.insolation ?? 1.0;
-
-    // Estimación aproximada basada en insolación y temperatura estelar
     final tempEstimate = (teff * 0.1 * insol).round();
     return tempEstimate.clamp(100, 2000);
   }
@@ -267,9 +256,6 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
   }
 
   String _generateDescription(ExoplanetData data, String type) {
-    final radius = data.radius ?? 1.0;
-    final temp = _estimateTemperature(data);
-
     if (type == "Earth-like") {
       return "Potentially habitable planet with Earth-like characteristics.";
     } else if (type == "Rocky") {
@@ -279,7 +265,6 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
     } else if (type.contains("Jupiter")) {
       return "Massive gas giant with extreme weather patterns.";
     }
-
     return "Exoplanet with unique characteristics.";
   }
 
@@ -328,57 +313,37 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
                 )
               : Column(
                   children: [
-                    // Header compacto
+                    // Header
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      padding: const EdgeInsets.fromLTRB(24, 30, 24, 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Image.asset(
-                            'assets/images/Logo-02.png',
-                            height: 35,
-                            width: 35,
-                          ),
-                          const Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Explorador de Exoplanetas',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          Text(
+                            'Hi Explorer,',
+                            style: TextStyle(
+                              color: Colors.white60,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w300,
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: const Color(0xFF60A5FA),
-                                width: 2,
-                              ),
+                          SizedBox(height: 12),
+                          Text(
+                            'Which exoplanet',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              height: 1.2,
                             ),
-                            child: CircleAvatar(
-                              radius: 16,
-                              backgroundColor: const Color(0xFF1E293B),
-                              backgroundImage: user?.photoURL != null
-                                  ? NetworkImage(user!.photoURL!)
-                                  : null,
-                              child: user?.photoURL == null
-                                  ? const Icon(
-                                      Icons.person,
-                                      size: 18,
-                                      color: Color(0xFF60A5FA),
-                                    )
-                                  : null,
+                          ),
+                          Text(
+                            'would you like to explore?',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 36,
+                              fontWeight: FontWeight.w300,
+                              height: 1.2,
                             ),
                           ),
                         ],
@@ -397,8 +362,11 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
                                 _currentPage = index;
                               });
                             },
-                            itemCount: exoplanets.length,
+                            itemCount: exoplanets.length + 1,
                             itemBuilder: (context, index) {
+                              if (index == exoplanets.length) {
+                                return _buildFormPage();
+                              }
                               return _buildPlanetCard(exoplanets[index]);
                             },
                           ),
@@ -425,7 +393,7 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
                               icon: const Icon(Icons.chevron_right,
                                   color: Colors.white, size: 32),
                               onPressed: () {
-                                if (_currentPage < exoplanets.length - 1) {
+                                if (_currentPage < exoplanets.length) {
                                   _pageController.nextPage(
                                     duration: const Duration(milliseconds: 300),
                                     curve: Curves.easeInOut,
@@ -444,7 +412,7 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(
-                          exoplanets.length,
+                          exoplanets.length + 1,
                           (index) => Container(
                             margin: const EdgeInsets.symmetric(horizontal: 4),
                             width: _currentPage == index ? 24 : 8,
@@ -468,30 +436,373 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
     );
   }
 
+  // PÁGINA DEL FORMULARIO
+  Widget _buildFormPage() {
+    final formKey = GlobalKey<FormState>();
+    final nameController = TextEditingController();
+    final radiusController = TextEditingController();
+    final temperatureController = TextEditingController();
+    final distanceController = TextEditingController();
+    final descriptionController = TextEditingController();
+    String selectedType = "Rocky";
+    String selectedStarType = "G2";
+
+    final planetTypes = [
+      "Rocky",
+      "Earth-like",
+      "Ocean world",
+      "Mini-Neptune",
+      "Hot Jupiter",
+      "Gas Giant",
+      "Super-Earth"
+    ];
+
+    final starTypes = ["G2", "G5", "K", "M-dwarf", "F", "A"];
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(24),
+      child: Form(
+        key: formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: 20),
+
+            // Icono de creación
+            Center(
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFF4A90E2).withOpacity(0.2),
+                  border: Border.all(
+                    color: Color(0xFF4A90E2),
+                    width: 2,
+                  ),
+                ),
+                child: Icon(
+                  Icons.add_circle_outline,
+                  size: 60,
+                  color: Color(0xFF4A90E2),
+                ),
+              ),
+            ),
+
+            SizedBox(height: 30),
+
+            Text(
+              'Create Your Exoplanet',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Design a unique planet with custom properties',
+              style: TextStyle(
+                color: Colors.white60,
+                fontSize: 14,
+              ),
+            ),
+            SizedBox(height: 30),
+
+            // Planet Name
+            _buildFormField(
+              controller: nameController,
+              label: 'Planet Name',
+              hint: 'e.g., Kepler-442b',
+              icon: Icons.public,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a planet name';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: 16),
+
+            // Radius
+            _buildFormField(
+              controller: radiusController,
+              label: 'Radius (Earth = 1.0)',
+              hint: 'e.g., 2.5',
+              icon: Icons.radio_button_unchecked,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter radius';
+                }
+                if (double.tryParse(value) == null) {
+                  return 'Please enter a valid number';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: 16),
+
+            // Temperature
+            _buildFormField(
+              controller: temperatureController,
+              label: 'Temperature (Kelvin)',
+              hint: 'e.g., 450',
+              icon: Icons.thermostat,
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter temperature';
+                }
+                if (int.tryParse(value) == null) {
+                  return 'Please enter a valid number';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: 16),
+
+            // Distance
+            _buildFormField(
+              controller: distanceController,
+              label: 'Distance (Light Years)',
+              hint: 'e.g., 120',
+              icon: Icons.straighten,
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter distance';
+                }
+                if (int.tryParse(value) == null) {
+                  return 'Please enter a valid number';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: 16),
+
+            // Planet Type Dropdown
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1),
+                ),
+              ),
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: StatefulBuilder(
+                builder: (context, setDropdownState) =>
+                    DropdownButtonFormField<String>(
+                  value: selectedType,
+                  dropdownColor: Color(0xFF1A1E3A),
+                  decoration: InputDecoration(
+                    labelText: 'Planet Type',
+                    labelStyle: TextStyle(color: Colors.white60),
+                    border: InputBorder.none,
+                    prefixIcon: Icon(Icons.category, color: Colors.white60),
+                  ),
+                  style: TextStyle(color: Colors.white),
+                  items: planetTypes.map((String type) {
+                    return DropdownMenuItem<String>(
+                      value: type,
+                      child: Text(type),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    setDropdownState(() {
+                      selectedType = newValue!;
+                    });
+                  },
+                ),
+              ),
+            ),
+            SizedBox(height: 16),
+
+            // Star Type Dropdown
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1),
+                ),
+              ),
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: StatefulBuilder(
+                builder: (context, setDropdownState) =>
+                    DropdownButtonFormField<String>(
+                  value: selectedStarType,
+                  dropdownColor: Color(0xFF1A1E3A),
+                  decoration: InputDecoration(
+                    labelText: 'Star Type',
+                    labelStyle: TextStyle(color: Colors.white60),
+                    border: InputBorder.none,
+                    prefixIcon: Icon(Icons.wb_sunny, color: Colors.white60),
+                  ),
+                  style: TextStyle(color: Colors.white),
+                  items: starTypes.map((String type) {
+                    return DropdownMenuItem<String>(
+                      value: type,
+                      child: Text(type),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    setDropdownState(() {
+                      selectedStarType = newValue!;
+                    });
+                  },
+                ),
+              ),
+            ),
+            SizedBox(height: 16),
+
+            // Description
+            _buildFormField(
+              controller: descriptionController,
+              label: 'Description',
+              hint: 'Brief description of the planet',
+              icon: Icons.description,
+              maxLines: 3,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a description';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: 30),
+
+            // Create Button
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: () {
+                  if (formKey.currentState!.validate()) {
+                    final newPlanet = Exoplanet(
+                      name: nameController.text,
+                      radiusEarth: double.parse(radiusController.text),
+                      temperatureK: int.parse(temperatureController.text),
+                      distanceLy: int.parse(distanceController.text),
+                      type: selectedType,
+                      starType: selectedStarType,
+                      description: descriptionController.text,
+                      colorHex: "#4A90E2",
+                      imageHint: "custom planet",
+                    );
+
+                    setState(() {
+                      exoplanets.add(newPlanet);
+                    });
+
+                    _pageController.animateToPage(
+                      exoplanets.length - 1,
+                      duration: Duration(milliseconds: 500),
+                      curve: Curves.easeInOut,
+                    );
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content:
+                            Text('${newPlanet.name} created successfully!'),
+                        backgroundColor: Colors.green.shade700,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFF4A90E2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.rocket_launch, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text(
+                      'Create Exoplanet',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+    String? Function(String?)? validator,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+        ),
+      ),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        style: TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: Colors.white60),
+          hintText: hint,
+          hintStyle: TextStyle(color: Colors.white30),
+          prefixIcon: Icon(icon, color: Colors.white60),
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        ),
+        validator: validator,
+      ),
+    );
+  }
+
   Widget _buildPlanetCard(Exoplanet planet) {
     return SingleChildScrollView(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(height: 10),
+          SizedBox(height: 20),
 
           // Orbital animation container
           Container(
-            width: 320,
-            height: 320,
+            width: 350,
+            height: 350,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 // Orbits
                 CustomPaint(
-                  size: const Size(320, 320),
+                  size: Size(350, 350),
                   painter: OrbitPainter(),
                 ),
 
                 // Planet Image con gradiente radial
                 Container(
-                  width: 250,
-                  height: 250,
+                  width: 280,
+                  height: 280,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
@@ -500,11 +811,11 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
                         planet.predictiveColor.withOpacity(0.4),
                         Colors.transparent,
                       ],
-                      stops: const [0.5, 0.8, 1.0],
+                      stops: [0.5, 0.8, 1.0],
                     ),
                   ),
                   child: Container(
-                    margin: const EdgeInsets.all(35),
+                    margin: EdgeInsets.all(40),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       boxShadow: [
@@ -517,8 +828,8 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
                     ),
                     child: ClipOval(
                       child: SizedBox(
-                        width: 180,
-                        height: 180,
+                        width: 200,
+                        height: 200,
                         child: CustomPaint(
                           painter: PlanetPainter(planet: planet),
                         ),
@@ -529,25 +840,25 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
 
                 // Orbital dots
                 Positioned(
-                  top: 40,
-                  right: 90,
+                  top: 45,
+                  right: 100,
                   child: _buildOrbitDot(),
                 ),
                 Positioned(
-                  bottom: 60,
-                  left: 80,
+                  bottom: 70,
+                  left: 90,
                   child: _buildOrbitDot(),
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: 30),
 
           // Planet Info Card
           Container(
-            margin: const EdgeInsets.symmetric(horizontal: 24),
-            padding: const EdgeInsets.all(20),
+            margin: EdgeInsets.symmetric(horizontal: 24),
+            padding: EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.05),
               borderRadius: BorderRadius.circular(20),
@@ -562,47 +873,46 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
                 // Planet Name
                 Text(
                   planet.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
-                    fontSize: 24,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
 
                 // Planet Type
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: planet.predictiveColor.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     planet.type.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1.5,
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 12),
+                SizedBox(height: 16),
 
                 // Description
                 Text(
                   planet.description,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white70,
-                    fontSize: 13,
-                    height: 1.4,
+                    fontSize: 14,
+                    height: 1.5,
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                SizedBox(height: 20),
 
                 // Stats Grid
                 Row(
@@ -614,7 +924,7 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
                         Icons.radio_button_unchecked,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 12),
                     Expanded(
                       child: _buildStatCard(
                         'Temp',
@@ -624,7 +934,7 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
@@ -634,7 +944,7 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
                         Icons.straighten,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 12),
                     Expanded(
                       child: _buildStatCard(
                         'Star Type',
@@ -673,7 +983,7 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
         ],
       ),
     );
@@ -681,7 +991,7 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
 
   Widget _buildStatCard(String label, String value, IconData icon) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
@@ -696,16 +1006,16 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
             children: [
               Icon(
                 icon,
-                size: 12,
+                size: 14,
                 color: Colors.white60,
               ),
-              const SizedBox(width: 4),
+              SizedBox(width: 6),
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white60,
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w500,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -713,12 +1023,12 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 6),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
-              fontSize: 13,
+              fontSize: 15,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -755,8 +1065,8 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
 
   Widget _buildOrbitDot() {
     return Container(
-      width: 12,
-      height: 12,
+      width: 14,
+      height: 14,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white,
@@ -803,7 +1113,6 @@ class OrbitPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// Custom Painter para dibujar planetas procedurales
 class PlanetPainter extends CustomPainter {
   final Exoplanet planet;
 
@@ -813,15 +1122,16 @@ class PlanetPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final baseRadius = size.width / 2;
-
     final radiusScale = (planet.radiusEarth * 0.3 + 0.7).clamp(0.6, 1.0);
     final radius = baseRadius * radiusScale;
-
     final tempFactor = (planet.temperatureK / 1500).clamp(0.0, 1.0);
-    final coolFactor = 1.0 - tempFactor;
 
-    Color adjustedColor =
-        _adjustColorByTemperature(planet.predictiveColor, planet.temperatureK);
+    Color adjustedColor = planet.predictiveColor;
+    if (planet.temperatureK > 800) {
+      adjustedColor = Color.lerp(adjustedColor, Colors.orange, 0.3)!;
+    } else if (planet.temperatureK < 280) {
+      adjustedColor = Color.lerp(adjustedColor, Colors.blue.shade100, 0.3)!;
+    }
 
     final planetPaint = Paint()
       ..shader = RadialGradient(
@@ -841,16 +1151,21 @@ class PlanetPainter extends CustomPainter {
 
     canvas.drawCircle(center, radius, planetPaint);
 
-    if (planet.type == "Earth-like" || planet.type == "Rocky") {
+    // Características según el tipo de planeta
+    if (planet.type == "Earth-like" ||
+        planet.type == "Rocky" ||
+        planet.type == "Super-Earth") {
       _drawRockyFeatures(canvas, center, radius, planet.temperatureK);
     } else if (planet.type == "Ocean world") {
       _drawOceanFeatures(canvas, center, radius, planet.temperatureK);
     } else if (planet.type.contains("Neptune") ||
-        planet.type.contains("Jupiter")) {
+        planet.type.contains("Jupiter") ||
+        planet.type.contains("Gas")) {
       _drawGasGiantFeatures(
           canvas, center, radius, planet.temperatureK, planet.radiusEarth);
     }
 
+    // Brillo atmosférico
     final glowIntensity =
         (planet.radiusEarth * 0.15 + tempFactor * 0.3).clamp(0.2, 0.5);
     final glowSize = radius * (0.5 + planet.radiusEarth * 0.05);
@@ -867,6 +1182,7 @@ class PlanetPainter extends CustomPainter {
 
     canvas.drawCircle(center, glowSize, glowPaint);
 
+    // Emisión de calor en planetas muy calientes
     if (planet.temperatureK > 800) {
       final heatGlowPaint = Paint()
         ..shader = RadialGradient(
@@ -881,10 +1197,11 @@ class PlanetPainter extends CustomPainter {
       canvas.drawCircle(center, radius * 1.2, heatGlowPaint);
     }
 
+    // Sombra
     final shadowPath = Path()
       ..addOval(Rect.fromCircle(center: center, radius: radius));
 
-    final shadowIntensity = 0.3 + (coolFactor * 0.3);
+    final shadowIntensity = 0.3 + ((1.0 - tempFactor) * 0.3);
     final shadowPaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.centerLeft,
@@ -897,20 +1214,10 @@ class PlanetPainter extends CustomPainter {
 
     canvas.drawPath(shadowPath, shadowPaint);
 
+    // Capa de hielo en planetas muy fríos
     if (planet.temperatureK < 280) {
       _drawIceLayer(canvas, center, radius, planet.temperatureK);
     }
-  }
-
-  Color _adjustColorByTemperature(Color baseColor, int temperature) {
-    if (temperature > 800) {
-      return Color.lerp(baseColor, Colors.orange, 0.3)!;
-    } else if (temperature > 500) {
-      return Color.lerp(baseColor, Colors.yellow.shade700, 0.2)!;
-    } else if (temperature < 280) {
-      return Color.lerp(baseColor, Colors.blue.shade100, 0.3)!;
-    }
-    return baseColor;
   }
 
   void _drawIceLayer(
@@ -919,7 +1226,7 @@ class PlanetPainter extends CustomPainter {
 
     final icePaint = Paint()
       ..color = Colors.white.withOpacity(0.3 * iceCoverage)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8);
 
     canvas.drawCircle(
       Offset(center.dx, center.dy - radius * 0.6),
@@ -960,7 +1267,7 @@ class PlanetPainter extends CustomPainter {
     if (temperature > 400) {
       final lavaPaint = Paint()
         ..color = Colors.orange.withOpacity(0.4)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10);
 
       canvas.drawCircle(
         Offset(center.dx - radius * 0.3, center.dy + radius * 0.2),
@@ -1021,7 +1328,6 @@ class PlanetPainter extends CustomPainter {
     for (int i = 0; i < bandCount; i++) {
       final bandY = center.dy - radius * 0.7 + (i * radius * 1.4 / bandCount);
       final bandHeight = radius * 0.28;
-
       final opacity = temperature > 600 ? 0.15 : 0.1;
 
       bandPaint.color = i % 2 == 0
@@ -1048,7 +1354,7 @@ class PlanetPainter extends CustomPainter {
         ..color = temperature > 1000
             ? Colors.orange.withOpacity(stormIntensity)
             : Colors.red.withOpacity(stormIntensity * 0.6)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 12);
 
       canvas.drawOval(
         Rect.fromCenter(

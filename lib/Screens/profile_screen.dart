@@ -140,7 +140,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             slivers: [
               // AppBar con banner
               SliverAppBar(
-                expandedHeight: 200,
+                expandedHeight: 80,
                 pinned: true,
                 backgroundColor: const Color(0xFF1E293B),
                 actions: [
