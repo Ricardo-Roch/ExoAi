@@ -385,7 +385,7 @@ class _IAScreenState extends State<IAScreen> {
                       const SizedBox(height: 12),
                       _buildResultCard(
                         'Confianza',
-                        '${((_prediction!['confidence'] ?? 0) * 100).toStringAsFixed(2)}%',
+                        '${_prediction!['confidence_percentage']?.toStringAsFixed(1) ?? '0'}%',
                         Icons.percent,
                         Colors.green,
                       ),
@@ -405,7 +405,7 @@ class _IAScreenState extends State<IAScreen> {
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: _buildProbabilityBar(
                                   entry.key,
-                                  (entry.value as num).toDouble(),
+                                  (entry.value as num).toDouble() / 100,
                                 ),
                               ),
                             ),
