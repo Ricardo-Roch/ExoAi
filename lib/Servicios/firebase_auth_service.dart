@@ -13,27 +13,38 @@ class FirebaseAuthService {
 
   User? get currentUser => _auth.currentUser;
 
+  // Variable para evitar loops infinitos
+  bool _isRedirecting = false;
+
   Future<User?> signInWithGoogle() async {
     try {
       if (kIsWeb) {
-        // EN WEB: Usar REDIRECT en lugar de POPUP (soluciona CORS)
-        print('🌐 Iniciando Google Sign-In en WEB con REDIRECT');
+        // EN WEB: Usar signInWithPopup (más simple y evita loops)
+        print('🌐 Iniciando Google Sign-In en WEB');
 
         final GoogleAuthProvider googleProvider = GoogleAuthProvider();
 
-        // IMPORTANTE: Usar signInWithRedirect en lugar de signInWithPopup
-        await _auth.signInWithRedirect(googleProvider);
+        try {
+          // Intentar con popup primero
+          final UserCredential userCredential =
+              await _auth.signInWithPopup(googleProvider);
 
-        // Después del redirect, obtener el resultado
-        final UserCredential? userCredential = await _auth.getRedirectResult();
+          if (userCredential.user != null) {
+            print('✅ Login exitoso con popup: ${userCredential.user!.email}');
+            await _createUserProfile(userCredential.user!);
+            return userCredential.user;
+          }
+        } catch (popupError) {
+          print('⚠️ Popup bloqueado, intentando con redirect...');
 
-        if (userCredential != null && userCredential.user != null) {
-          print('✅ Login exitoso: ${userCredential.user!.email}');
-          await _createUserProfile(userCredential.user!);
-          return userCredential.user;
+          // Si el popup falla, usar redirect como fallback
+          if (!_isRedirecting) {
+            _isRedirecting = true;
+            await _auth.signInWithRedirect(googleProvider);
+            return null;
+          }
         }
 
-        // Si no hay resultado aún, esperar al siguiente ciclo
         return null;
       } else {
         // EN MÓVIL: Usar el método normal
@@ -67,6 +78,7 @@ class FirebaseAuthService {
       }
     } catch (e) {
       print('❌ Error en inicio de sesion con Google: $e');
+      _isRedirecting = false;
       return null;
     }
   }
@@ -107,6 +119,7 @@ class FirebaseAuthService {
         await _googleSignIn.signOut();
       }
       await _auth.signOut();
+      _isRedirecting = false;
       print('✅ Sesión cerrada correctamente');
     } catch (e) {
       print('❌ Error al cerrar sesion: $e');
