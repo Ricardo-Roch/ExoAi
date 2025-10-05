@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../Servicios/gemini_service.dart';
 
 class HomeContent extends StatefulWidget {
   final String userName;
@@ -27,6 +28,8 @@ class _HomeContentState extends State<HomeContent> {
 
   Timer? _countdownTimer;
   Timer? _autoScrollTimer;
+
+  final GeminiService _geminiService = GeminiService();
 
   @override
   void initState() {
@@ -53,11 +56,155 @@ class _HomeContentState extends State<HomeContent> {
   void _startCountdownTimer() {
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
-        setState(() {
-          // Forzar actualización del countdown cada segundo
-        });
+        setState(() {});
       }
     });
+  }
+
+  void _showGeminiAnalysis(Map<String, dynamic> launch) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: Color(0xFF60A5FA)),
+            const SizedBox(height: 16),
+            Text(
+              'Analizando con Gemini AI...',
+              style: TextStyle(color: Colors.grey[300]),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final analysis = await _geminiService.analyzeSpaceLaunch(launch);
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF1E293B),
+                  Color(0xFF0F172A),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF60A5FA),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF60A5FA).withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF60A5FA).withOpacity(0.1),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(18),
+                      topRight: Radius.circular(18),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF60A5FA).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome,
+                          color: Color(0xFF60A5FA),
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Análisis Gemini AI',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'Análisis detallado de la misión',
+                              style: TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      analysis,
+                      style: TextStyle(
+                        color: Colors.grey[300],
+                        fontSize: 15,
+                        height: 1.8,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al analizar: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _fetchNASANews() async {
@@ -156,7 +303,6 @@ class _HomeContentState extends State<HomeContent> {
 
         final List<Map<String, dynamic>> launchesData = [];
 
-        // Filtrar y priorizar lanzamientos
         final exoplanetLaunches = results.where((launch) {
           final missionName =
               (launch['mission']?['name'] ?? '').toString().toLowerCase();
@@ -189,7 +335,6 @@ class _HomeContentState extends State<HomeContent> {
               launchName.contains('exoplanet'));
         }).toList();
 
-        // Combinar: primero exoplanetas, luego otros
         final prioritizedLaunches = [...exoplanetLaunches, ...otherLaunches];
 
         for (var launch in prioritizedLaunches.take(2)) {
@@ -203,20 +348,16 @@ class _HomeContentState extends State<HomeContent> {
           final missionDescription = launch['mission']?['description'] ?? '';
           final probability = launch['probability'] ?? -1;
 
-          // Determinar si es relacionado con exoplanetas
           final isExoplanet = missionName.toLowerCase().contains('exoplanet') ||
               missionDescription.toLowerCase().contains('exoplanet') ||
               nombre.toLowerCase().contains('exoplanet') ||
               missionName.toLowerCase().contains('tess') ||
               missionName.toLowerCase().contains('jwst');
 
-          // Determinar estado basado en status
-          bool completada = statusId == 3; // Success
-          bool enProceso =
-              statusId == 1 || statusId == 2; // Go for Launch o TBD
-          bool fallida =
-              statusId == 4 || statusId == 7; // Failed o Partial Failure
-          bool enLanzamiento = statusId == 6; // In Flight
+          bool completada = statusId == 3;
+          bool enProceso = statusId == 1 || statusId == 2;
+          bool fallida = statusId == 4 || statusId == 7;
+          bool enLanzamiento = statusId == 6;
 
           launchesData.add({
             'nombre': nombre,
@@ -286,8 +427,6 @@ class _HomeContentState extends State<HomeContent> {
       final now = DateTime.now();
       final difference = launchDate.difference(now);
 
-      // Si faltan más de 30 días, progreso = 0
-      // Si faltan 0 días, progreso = 1
       final maxDays = 30;
       final daysRemaining = difference.inDays;
 
@@ -404,7 +543,6 @@ class _HomeContentState extends State<HomeContent> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header con foto de perfil
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -434,7 +572,6 @@ class _HomeContentState extends State<HomeContent> {
                               ],
                             ),
                           ),
-                          // Mostrar foto de perfil solo en móviles (cuando el ancho < 768)
                           if (size.width <= 768)
                             Container(
                               padding: const EdgeInsets.all(3),
@@ -486,8 +623,6 @@ class _HomeContentState extends State<HomeContent> {
                         ],
                       ),
                       const SizedBox(height: 24),
-
-                      // Carrusel de noticias - SOLO CARRUSEL
                       if (_noticias.isNotEmpty)
                         GestureDetector(
                           onTap: () {
@@ -524,7 +659,6 @@ class _HomeContentState extends State<HomeContent> {
                               borderRadius: BorderRadius.circular(16),
                               child: Stack(
                                 children: [
-                                  // PageView para las noticias
                                   PageView.builder(
                                     controller: _pageController,
                                     onPageChanged: (index) {
@@ -537,7 +671,6 @@ class _HomeContentState extends State<HomeContent> {
                                       final noticia = _noticias[index];
                                       return Stack(
                                         children: [
-                                          // Imagen de fondo
                                           Image.network(
                                             noticia['imagen']!,
                                             width: double.infinity,
@@ -571,7 +704,6 @@ class _HomeContentState extends State<HomeContent> {
                                               );
                                             },
                                           ),
-                                          // Gradiente sobre la imagen
                                           Container(
                                             decoration: BoxDecoration(
                                               gradient: LinearGradient(
@@ -586,7 +718,6 @@ class _HomeContentState extends State<HomeContent> {
                                               ),
                                             ),
                                           ),
-                                          // Texto
                                           Positioned(
                                             bottom: 0,
                                             left: 0,
@@ -650,8 +781,6 @@ class _HomeContentState extends State<HomeContent> {
                                       );
                                     },
                                   ),
-
-                                  // Botones de navegación
                                   if (_noticias.length > 1) ...[
                                     Positioned(
                                       left: 16,
@@ -692,8 +821,6 @@ class _HomeContentState extends State<HomeContent> {
                                         ),
                                       ),
                                     ),
-
-                                    // Indicadores
                                     Positioned(
                                       bottom: 16,
                                       left: 0,
@@ -745,8 +872,6 @@ class _HomeContentState extends State<HomeContent> {
                           ),
                         ),
                       const SizedBox(height: 24),
-
-                      // Panel de Lanzamientos Espaciales
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
@@ -870,7 +995,6 @@ class _HomeContentState extends State<HomeContent> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      // Header con status
                                       Row(
                                         children: [
                                           Expanded(
@@ -958,7 +1082,6 @@ class _HomeContentState extends State<HomeContent> {
                                       ),
                                       const SizedBox(height: 16),
 
-                                      // Countdown grande
                                       if (enProceso || enLanzamiento)
                                         Container(
                                           padding: const EdgeInsets.all(16),
@@ -1026,7 +1149,6 @@ class _HomeContentState extends State<HomeContent> {
                                           ),
                                         ),
 
-                                      // Barra de progreso
                                       if (enProceso && !enLanzamiento)
                                         Column(
                                           children: [
@@ -1072,7 +1194,6 @@ class _HomeContentState extends State<HomeContent> {
 
                                       const SizedBox(height: 16),
 
-                                      // Información adicional
                                       Container(
                                         padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
@@ -1105,7 +1226,6 @@ class _HomeContentState extends State<HomeContent> {
                                         ),
                                       ),
 
-                                      // Descripción de misión si existe
                                       if (lanzamiento['missionDescription'] !=
                                               '' &&
                                           lanzamiento['missionDescription'] !=
@@ -1125,6 +1245,42 @@ class _HomeContentState extends State<HomeContent> {
                                             ),
                                           ],
                                         ),
+
+                                      const SizedBox(height: 16),
+
+                                      // BOTÓN DE GEMINI
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: ElevatedButton.icon(
+                                          onPressed: () =>
+                                              _showGeminiAnalysis(lanzamiento),
+                                          icon: const Icon(Icons.auto_awesome,
+                                              size: 20),
+                                          label: const Text(
+                                            'Analizar con Gemini AI',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                const Color(0xFF60A5FA),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 20,
+                                              vertical: 14,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            elevation: 4,
+                                            shadowColor: const Color(0xFF60A5FA)
+                                                .withOpacity(0.5),
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 );

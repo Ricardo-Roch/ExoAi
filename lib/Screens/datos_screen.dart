@@ -1,126 +1,144 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import '../Servicios/BackendExoplanetService.dart';
 
-class DatosScreen extends StatefulWidget {
-  const DatosScreen({Key? key}) : super(key: key);
+// Importa tu servicio
+// import 'backend_exoplanet_service.dart';
+
+class ExoplanetScreen extends StatefulWidget {
+  const ExoplanetScreen({Key? key}) : super(key: key);
 
   @override
-  State<DatosScreen> createState() => _DatosScreenState();
+  State<ExoplanetScreen> createState() => _ExoplanetScreenState();
 }
 
-class _DatosScreenState extends State<DatosScreen> {
-  // Ejemplo de datos que podrías cargar
-  final List<Map<String, dynamic>> _datasets = [
-    {
-      'title': 'Dataset de Entrenamiento',
-      'size': '2.4 GB',
-      'items': '15,234 registros',
-      'lastUpdate': 'Hace 2 horas',
-      'icon': Icons.storage,
-      'color': Colors.blue,
-    },
-    {
-      'title': 'Datos de Usuarios',
-      'size': '156 MB',
-      'items': '1,043 usuarios',
-      'lastUpdate': 'Hace 5 minutos',
-      'icon': Icons.people,
-      'color': Colors.green,
-    },
-    {
-      'title': 'Logs del Sistema',
-      'size': '89 MB',
-      'items': '45,678 eventos',
-      'lastUpdate': 'Hace 1 hora',
-      'icon': Icons.description,
-      'color': Colors.orange,
-    },
-  ];
+class _ExoplanetScreenState extends State<ExoplanetScreen> {
+  final BackendExoplanetService _service = BackendExoplanetService();
+
+  List<ExoplanetData> _exoplanets = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+  Map<String, dynamic>? _backendStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // 1. Verificar estado del backend
+      final health = await _service.checkHealth();
+      setState(() => _backendStatus = health);
+
+      // 2. Verificar si hay datos
+      final status = await _service.getTrainStatus();
+
+      // 3. Si no hay datos, descargarlos
+      if (status['data_available'] == false) {
+        await _service.fetchDatasets();
+      }
+
+      // 4. Obtener preview de exoplanetas
+      final preview = await _service.getDatasetPreview(n: 100);
+
+      // 5. Parsear exoplanetas
+      final exoplanets = _service.parseExoplanetsFromPreview(preview);
+
+      setState(() {
+        _exoplanets = exoplanets;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF0F172A),
+              Color(0xFF172554),
+              Color(0xFF0F172A),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: _isLoading
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: Color(0xFF60A5FA)),
+                      SizedBox(height: 16),
+                      Text(
+                        'Cargando exoplanetas...',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ],
+                  ),
+                )
+              : _errorMessage != null
+                  ? _buildError()
+                  : _buildContent(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Header
+            const Icon(
+              Icons.error_outline,
+              color: Colors.red,
+              size: 64,
+            ),
+            const SizedBox(height: 16),
             const Text(
-              'Datos',
+              'Error al cargar datos',
               style: TextStyle(
-                fontSize: 32,
+                color: Colors.white,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Gestiona tus datasets y bases de datos',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
+              _errorMessage!,
+              style: TextStyle(color: Colors.grey[400]),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-
-            // Estadísticas rápidas
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    'Total',
-                    '2.6 GB',
-                    Icons.cloud_outlined,
-                    Colors.blue,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    'Archivos',
-                    '3',
-                    Icons.folder_outlined,
-                    Colors.purple,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Lista de datasets
-            Expanded(
-              child: ListView.builder(
-                itemCount: _datasets.length,
-                itemBuilder: (context, index) {
-                  final dataset = _datasets[index];
-                  return _buildDatasetCard(
-                    title: dataset['title'],
-                    size: dataset['size'],
-                    items: dataset['items'],
-                    lastUpdate: dataset['lastUpdate'],
-                    icon: dataset['icon'],
-                    color: dataset['color'],
-                  );
-                },
-              ),
-            ),
-
-            // Botón para agregar datos
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  // Acción para subir datos
-                  _showUploadDialog();
-                },
-                icon: const Icon(Icons.upload_file),
-                label: const Text('Subir Nuevo Dataset'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue[600],
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+            ElevatedButton.icon(
+              onPressed: _loadData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF60A5FA),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
                 ),
               ),
             ),
@@ -130,129 +148,239 @@ class _DatosScreenState extends State<DatosScreen> {
     );
   }
 
-  Widget _buildStatCard(
-      String label, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: color,
+  Widget _buildContent() {
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      color: const Color(0xFF60A5FA),
+      child: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 200,
+            pinned: true,
+            backgroundColor: const Color(0xFF0F172A),
+            flexibleSpace: FlexibleSpaceBar(
+              title: const Text(
+                'Exoplanetas',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF60A5FA).withOpacity(0.3),
+                      const Color(0xFF0F172A),
+                    ],
+                  ),
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.public,
+                    size: 80,
+                    color: Color(0xFF60A5FA),
+                  ),
+                ),
+              ),
             ),
           ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
+
+          // Stats card
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF1E293B),
+                      Color(0xFF0F172A),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFF334155),
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatItem(
+                          'Total',
+                          '${_exoplanets.length}',
+                          Icons.explore,
+                        ),
+                        _buildStatItem(
+                          'Backend',
+                          _backendStatus?['status'] == 'healthy'
+                              ? 'OK'
+                              : 'Error',
+                          Icons.cloud,
+                        ),
+                        _buildStatItem(
+                          'Modelo',
+                          _backendStatus?['model_ready'] == true
+                              ? 'Listo'
+                              : 'No',
+                          Icons.memory,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
+
+          // Lista de exoplanetas
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final exoplanet = _exoplanets[index];
+                  return _buildExoplanetCard(exoplanet);
+                },
+                childCount: _exoplanets.length,
+              ),
+            ),
+          ),
+
+          const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
         ],
       ),
     );
   }
 
-  Widget _buildDatasetCard({
-    required String title,
-    required String size,
-    required String items,
-    required String lastUpdate,
-    required IconData icon,
-    required Color color,
-  }) {
+  Widget _buildStatItem(String label, String value, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, color: const Color(0xFF60A5FA), size: 32),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF94A3B8),
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExoplanetCard(ExoplanetData exoplanet) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1E293B),
+            Color(0xFF0F172A),
+          ],
+        ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: const Color(0xFF334155),
+          width: 1,
+        ),
       ),
-      child: Row(
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        title: Text(
+          exoplanet.name,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        subtitle: Text(
+          'Radio: ${exoplanet.radius?.toStringAsFixed(2) ?? 'N/A'} R⊕',
+          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+        ),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF60A5FA).withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(
+            Icons.public,
+            color: Color(0xFF60A5FA),
+          ),
+        ),
+        iconColor: const Color(0xFF60A5FA),
+        collapsedIconColor: const Color(0xFF60A5FA),
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+              color: Colors.black.withOpacity(0.2),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(12),
+                bottomRight: Radius.circular(12),
+              ),
             ),
-            child: Icon(icon, color: color, size: 28),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$size • $items',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  lastUpdate,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[500],
-                  ),
-                ),
+                _buildDataRow('Período Orbital',
+                    '${exoplanet.period?.toStringAsFixed(2) ?? 'N/A'} días'),
+                _buildDataRow('Duración Tránsito',
+                    '${exoplanet.duration?.toStringAsFixed(2) ?? 'N/A'} h'),
+                _buildDataRow('Profundidad',
+                    '${exoplanet.depth?.toStringAsFixed(4) ?? 'N/A'}'),
+                _buildDataRow('Insolación',
+                    '${exoplanet.insolation?.toStringAsFixed(2) ?? 'N/A'} S⊕'),
+                _buildDataRow('Temp. Estelar',
+                    '${exoplanet.teff?.toStringAsFixed(0) ?? 'N/A'} K'),
+                _buildDataRow('Radio Estelar',
+                    '${exoplanet.srad?.toStringAsFixed(2) ?? 'N/A'} R☉'),
               ],
             ),
           ),
-          Icon(Icons.chevron_right, color: Colors.grey[400]),
         ],
       ),
     );
   }
 
-  void _showUploadDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Subir Dataset'),
-        content:
-            const Text('Esta función permite cargar nuevos datos al sistema.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+  Widget _buildDataRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF94A3B8),
+              fontSize: 13,
+            ),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Funcionalidad en desarrollo')),
-              );
-            },
-            child: const Text('Subir'),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),

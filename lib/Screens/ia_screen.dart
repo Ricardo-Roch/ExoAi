@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 
 class IAScreen extends StatefulWidget {
   const IAScreen({Key? key}) : super(key: key);
@@ -35,7 +36,6 @@ class _IAScreenState extends State<IAScreen> {
   }
 
   Future<void> _sendPrediction() async {
-    // Validar que todos los campos estén llenos
     if (_periodController.text.trim().isEmpty ||
         _durationController.text.trim().isEmpty ||
         _depthController.text.trim().isEmpty ||
@@ -56,22 +56,36 @@ class _IAScreenState extends State<IAScreen> {
     });
 
     try {
-      final response = await http.post(
-        Uri.parse('https://back-exoai.onrender.com/predict'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'period': double.parse(_periodController.text),
-          'duration': double.parse(_durationController.text),
-          'depth': double.parse(_depthController.text),
-          'radius': double.parse(_radiusController.text),
-          'insolation': double.parse(_insolationController.text),
-          'teff': double.parse(_teffController.text),
-          'srad': double.parse(_sradController.text),
-        }),
-      );
+      final response = await http
+          .post(
+            Uri.parse('https://back-exoai.onrender.com/predict'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'period': double.parse(_periodController.text),
+              'duration': double.parse(_durationController.text),
+              'depth': double.parse(_depthController.text),
+              'radius': double.parse(_radiusController.text),
+              'insolation': double.parse(_insolationController.text),
+              'teff': double.parse(_teffController.text),
+              'srad': double.parse(_sradController.text),
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      print('Status: ${response.statusCode}');
+      print('Body: ${response.body}');
 
       if (response.statusCode == 200) {
+        if (response.body.isEmpty) {
+          throw Exception('Respuesta vacía del servidor');
+        }
+
         final data = jsonDecode(response.body);
+
+        if (data == null) {
+          throw Exception('Datos inválidos recibidos');
+        }
+
         setState(() {
           _prediction = data;
           _isProcessing = false;
@@ -79,6 +93,16 @@ class _IAScreenState extends State<IAScreen> {
       } else {
         throw Exception('Error ${response.statusCode}: ${response.body}');
       }
+    } on TimeoutException catch (_) {
+      setState(() {
+        _errorMessage = 'Timeout: El servidor tardó demasiado en responder';
+        _isProcessing = false;
+      });
+    } on FormatException catch (e) {
+      setState(() {
+        _errorMessage = 'Error al parsear respuesta: ${e.message}';
+        _isProcessing = false;
+      });
     } catch (e) {
       setState(() {
         _errorMessage = 'Error al realizar la predicción: $e';
@@ -117,7 +141,6 @@ class _IAScreenState extends State<IAScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -154,8 +177,6 @@ class _IAScreenState extends State<IAScreen> {
                 ],
               ),
               const SizedBox(height: 24),
-
-              // Formulario de entrada
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -290,8 +311,6 @@ class _IAScreenState extends State<IAScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // Mensajes de error
               if (_errorMessage != null)
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -313,8 +332,6 @@ class _IAScreenState extends State<IAScreen> {
                     ],
                   ),
                 ),
-
-              // Resultados de predicción
               if (_prediction != null) ...[
                 const SizedBox(height: 24),
                 Container(
@@ -368,7 +385,7 @@ class _IAScreenState extends State<IAScreen> {
                       const SizedBox(height: 12),
                       _buildResultCard(
                         'Confianza',
-                        '${(_prediction!['confidence'] * 100).toStringAsFixed(2)}%',
+                        '${((_prediction!['confidence'] ?? 0) * 100).toStringAsFixed(2)}%',
                         Icons.percent,
                         Colors.green,
                       ),
@@ -388,7 +405,7 @@ class _IAScreenState extends State<IAScreen> {
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: _buildProbabilityBar(
                                   entry.key,
-                                  entry.value,
+                                  (entry.value as num).toDouble(),
                                 ),
                               ),
                             ),

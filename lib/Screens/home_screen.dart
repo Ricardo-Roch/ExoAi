@@ -85,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Inicializamos la lista de pantallas con el nombre real del usuario
     _screens = [
       HomeContent(userName: userName),
-      const DatosScreen(),
+      const ExoplanetScreen(),
       const IAScreen(),
       const VisualizacionesScreen(),
       ProfileScreen(userName: userName),
