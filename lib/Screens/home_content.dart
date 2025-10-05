@@ -4,6 +4,7 @@ import 'package:xml/xml.dart' as xml;
 import 'dart:convert';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeContent extends StatefulWidget {
   final String userName;
@@ -403,57 +404,85 @@ class _HomeContentState extends State<HomeContent> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header con botón de datasets
+                      // Header con foto de perfil
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'NASA News',
-                                style: TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              if (_errorMessage != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                    'Toca para recargar',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.orange[300],
-                                    ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'NASA News',
+                                  style: TextStyle(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
                                   ),
                                 ),
-                            ],
-                          ),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Funcionalidad en desarrollo'),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.storage, size: 20),
-                            label: const Text('Datasets',
-                                style: TextStyle(fontWeight: FontWeight.w600)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue[600],
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                                if (_errorMessage != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      'Toca para recargar',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.orange[300],
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
+                          // Mostrar foto de perfil solo en móviles (cuando el ancho < 768)
+                          if (size.width <= 768)
+                            Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(0xFF60A5FA),
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF60A5FA)
+                                        .withOpacity(0.3),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: CircleAvatar(
+                                radius: 24,
+                                backgroundColor: const Color(0xFF1E293B),
+                                child: FirebaseAuth
+                                            .instance.currentUser?.photoURL !=
+                                        null
+                                    ? ClipOval(
+                                        child: Image.network(
+                                          FirebaseAuth
+                                              .instance.currentUser!.photoURL!,
+                                          fit: BoxFit.cover,
+                                          width: 48,
+                                          height: 48,
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                            return const Icon(
+                                              Icons.person,
+                                              size: 28,
+                                              color: Color(0xFF60A5FA),
+                                            );
+                                          },
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.person,
+                                        size: 28,
+                                        color: Color(0xFF60A5FA),
+                                      ),
+                              ),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 24),
