@@ -10,10 +10,10 @@ class ExoplanetScreen extends StatefulWidget {
 }
 
 class _ExoplanetScreenState extends State<ExoplanetScreen> {
-  Map<String, List<ExoplanetData>> _groupedExoplanets = {};
+  List<ExoplanetData> _exoplanets = [];
   bool _isLoading = true;
   String? _errorMessage;
-  Map<String, dynamic>? _storageInfo;
+  String? _rawJson; // Para debug
 
   @override
   void initState() {
@@ -28,34 +28,26 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
     });
 
     try {
-      // 1. Primero llamar a /cloud/storage/list
-      final storageResponse = await http.get(
-        Uri.parse('https://back-exoai.onrender.com/cloud/storage/list'),
+      final response = await http.get(
+        Uri.parse('https://back-exoai.onrender.com/datasets/preview?n=50'),
       );
 
-      if (storageResponse.statusCode == 200) {
-        _storageInfo = jsonDecode(storageResponse.body);
-      }
+      if (response.statusCode == 200) {
+        _rawJson = response.body; // Guarda el JSON crudo para debug
+        final jsonData = jsonDecode(response.body);
 
-      // 2. Luego obtener preview de exoplanetas
-      final previewResponse = await http.get(
-        Uri.parse('https://back-exoai.onrender.com/datasets/preview?n=2'),
-      );
+        print('JSON Structure: ${jsonData.keys}'); // Debug
 
-      if (previewResponse.statusCode == 200) {
-        final previewData = jsonDecode(previewResponse.body);
-
-        // 3. Parsear y agrupar exoplanetas por nombre
-        _groupedExoplanets = _parseAndGroupExoplanets(previewData);
+        _exoplanets = _parseExoplanets(jsonData);
 
         setState(() {
           _isLoading = false;
         });
       } else {
-        throw Exception(
-            'Error al cargar preview: ${previewResponse.statusCode}');
+        throw Exception('Error ${response.statusCode}: ${response.body}');
       }
     } catch (e) {
+      print('Error completo: $e'); // Debug
       setState(() {
         _errorMessage = e.toString();
         _isLoading = false;
@@ -63,81 +55,72 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
     }
   }
 
-  Map<String, List<ExoplanetData>> _parseAndGroupExoplanets(
-      Map<String, dynamic> data) {
-    Map<String, List<ExoplanetData>> grouped = {};
+  List<ExoplanetData> _parseExoplanets(Map<String, dynamic> jsonData) {
+    List<ExoplanetData> exoplanets = [];
 
-    // Procesar cada dataset
-    data.forEach((datasetName, datasetContent) {
-      if (datasetContent is Map && datasetContent.containsKey('head')) {
-        final items = datasetContent['head'] as List;
+    // Verifica si tiene la estructura de "datasets"
+    if (jsonData.containsKey('datasets')) {
+      final datasets = jsonData['datasets'] as Map<String, dynamic>;
 
-        for (var item in items) {
-          // Determinar el nombre del exoplaneta según el dataset
-          String? planetName;
+      datasets.forEach((datasetName, datasetContent) {
+        if (datasetContent is Map && datasetContent.containsKey('head')) {
+          final items = datasetContent['head'] as List;
+          print('Dataset $datasetName tiene ${items.length} items'); // Debug
 
-          if (datasetName == 'cumulative') {
-            planetName = item['kepler_name'] ?? item['kepoi_name'];
-          } else if (datasetName == 'TOI') {
-            planetName = item['toipfxstr'] ?? 'TOI-${item['toipfx']}';
-          } else if (datasetName == 'k2pandc') {
-            planetName = item['k2_name'] ?? item['pl_name'];
-          }
+          for (var item in items) {
+            String? planetName = _extractPlanetName(item, datasetName);
 
-          if (planetName != null) {
-            final exoplanet = ExoplanetData(
-              name: planetName,
-              period: _parseDouble(item['koi_period'] ?? item['pl_orbper']),
-              duration:
-                  _parseDouble(item['koi_duration'] ?? item['pl_trandur']),
-              depth: _parseDouble(item['koi_depth'] ?? item['pl_trandep']),
-              radius: _parseDouble(item['koi_prad'] ?? item['pl_rade']),
-              insolation: _parseDouble(item['koi_insol'] ?? item['pl_insol']),
-              teff: _parseDouble(item['koi_steff'] ?? item['st_teff']),
-              srad: _parseDouble(item['koi_srad'] ?? item['st_rad']),
-              dataset: datasetName,
-              disposition:
-                  item['koi_disposition'] ?? item['disposition'] ?? 'N/A',
-            );
-
-            // Agrupar por nombre base (sin letras de planeta)
-            String baseName = _getBaseName(planetName);
-
-            if (!grouped.containsKey(baseName)) {
-              grouped[baseName] = [];
+            if (planetName != null) {
+              exoplanets.add(ExoplanetData(
+                name: planetName,
+                dataset: datasetName,
+                allFields: Map<String, dynamic>.from(item),
+              ));
             }
-            grouped[baseName]!.add(exoplanet);
           }
         }
-      }
-    });
+      });
+    } else {
+      // Si no tiene "datasets", intenta parsear directamente
+      jsonData.forEach((datasetName, datasetContent) {
+        if (datasetContent is Map && datasetContent.containsKey('head')) {
+          final items = datasetContent['head'] as List;
 
-    return grouped;
-  }
+          for (var item in items) {
+            String? planetName = _extractPlanetName(item, datasetName);
 
-  String _getBaseName(String fullName) {
-    // Extraer nombre base sin letras de planetas (b, c, d, etc.)
-    final patterns = [
-      RegExp(r'^(Kepler-\d+)'),
-      RegExp(r'^(K2-\d+)'),
-      RegExp(r'^(TOI-\d+)'),
-    ];
-
-    for (var pattern in patterns) {
-      final match = pattern.firstMatch(fullName);
-      if (match != null) {
-        return match.group(1)!;
-      }
+            if (planetName != null) {
+              exoplanets.add(ExoplanetData(
+                name: planetName,
+                dataset: datasetName,
+                allFields: Map<String, dynamic>.from(item),
+              ));
+            }
+          }
+        }
+      });
     }
 
-    return fullName;
+    print('Total planetas parseados: ${exoplanets.length}'); // Debug
+    exoplanets.sort((a, b) => a.name.compareTo(b.name));
+    return exoplanets;
   }
 
-  double? _parseDouble(dynamic value) {
-    if (value == null) return null;
-    if (value is num) return value.toDouble();
-    if (value is String) return double.tryParse(value);
-    return null;
+  String? _extractPlanetName(Map<String, dynamic> item, String datasetName) {
+    // Intenta múltiples campos según el dataset
+    if (datasetName == 'cumulative') {
+      return item['kepler_name'] ?? item['kepoi_name'];
+    } else if (datasetName == 'TOI') {
+      return item['toipfxstr'] ?? item['tidstr'] ?? 'TOI-${item['toipfx']}';
+    } else if (datasetName == 'k2pandc') {
+      return item['k2_name'] ?? item['pl_name'];
+    }
+
+    // Fallback: busca cualquier campo con "name"
+    return item['pl_name'] ??
+        item['kepler_name'] ??
+        item['k2_name'] ??
+        item['name'];
   }
 
   @override
@@ -180,16 +163,12 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
 
   Widget _buildError() {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.error_outline,
-              color: Colors.red,
-              size: 64,
-            ),
+            const Icon(Icons.error_outline, color: Colors.red, size: 64),
             const SizedBox(height: 16),
             const Text(
               'Error al cargar datos',
@@ -205,6 +184,31 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
               style: TextStyle(color: Colors.grey[400]),
               textAlign: TextAlign.center,
             ),
+            if (_rawJson != null) ...[
+              const SizedBox(height: 16),
+              const Text(
+                'JSON recibido:',
+                style:
+                    TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _rawJson!.substring(
+                      0, _rawJson!.length > 500 ? 500 : _rawJson!.length),
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _loadData,
@@ -213,10 +217,8 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF60A5FA),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
             ),
           ],
@@ -226,8 +228,31 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
   }
 
   Widget _buildContent() {
-    final totalPlanets = _groupedExoplanets.values
-        .fold<int>(0, (sum, list) => sum + list.length);
+    if (_exoplanets.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.search_off, size: 64, color: Color(0xFF60A5FA)),
+            const SizedBox(height: 16),
+            const Text(
+              'No se encontraron exoplanetas',
+              style: TextStyle(color: Colors.white, fontSize: 18),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Recargar'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF60A5FA),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -241,9 +266,7 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
             flexibleSpace: FlexibleSpaceBar(
               title: const Text(
                 'Exoplanetas',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
               background: Container(
                 decoration: BoxDecoration(
@@ -257,17 +280,11 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
                   ),
                 ),
                 child: const Center(
-                  child: Icon(
-                    Icons.public,
-                    size: 80,
-                    color: Color(0xFF60A5FA),
-                  ),
+                  child: Icon(Icons.public, size: 80, color: Color(0xFF60A5FA)),
                 ),
               ),
             ),
           ),
-
-          // Stats card
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -277,64 +294,41 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF1E293B),
-                      Color(0xFF0F172A),
-                    ],
+                    colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
                   ),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFF334155),
-                    width: 1,
-                  ),
+                  border: Border.all(color: const Color(0xFF334155), width: 1),
                 ),
-                child: Column(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildStatItem(
-                          'Sistemas',
-                          '${_groupedExoplanets.length}',
-                          Icons.star,
-                        ),
-                        _buildStatItem(
-                          'Planetas',
-                          '$totalPlanets',
-                          Icons.public,
-                        ),
-                        _buildStatItem(
-                          'Storage',
-                          _storageInfo != null ? 'OK' : 'N/A',
-                          Icons.cloud,
-                        ),
-                      ],
-                    ),
+                    _buildStatItem(
+                        'Total', '${_exoplanets.length}', Icons.public),
+                    _buildStatItem(
+                        'Datasets', _getUniqueDatasets(), Icons.dataset),
                   ],
                 ),
               ),
             ),
           ),
-
-          // Lista de sistemas agrupados
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final systemName = _groupedExoplanets.keys.elementAt(index);
-                  final planets = _groupedExoplanets[systemName]!;
-                  return _buildSystemCard(systemName, planets);
-                },
-                childCount: _groupedExoplanets.length,
+                (context, index) => _buildPlanetCard(_exoplanets[index]),
+                childCount: _exoplanets.length,
               ),
             ),
           ),
-
           const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
         ],
       ),
     );
+  }
+
+  String _getUniqueDatasets() {
+    final datasets = _exoplanets.map((e) => e.dataset).toSet();
+    return '${datasets.length}';
   }
 
   Widget _buildStatItem(String label, String value, IconData icon) {
@@ -352,37 +346,28 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
         ),
         Text(
           label,
-          style: const TextStyle(
-            color: Color(0xFF94A3B8),
-            fontSize: 12,
-          ),
+          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
         ),
       ],
     );
   }
 
-  Widget _buildSystemCard(String systemName, List<ExoplanetData> planets) {
+  Widget _buildPlanetCard(ExoplanetData planet) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1E293B),
-            Color(0xFF0F172A),
-          ],
+          colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
         ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFF334155),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFF334155), width: 1),
       ),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         title: Text(
-          systemName,
+          planet.name,
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -390,7 +375,7 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
           ),
         ),
         subtitle: Text(
-          '${planets.length} planeta${planets.length > 1 ? 's' : ''}',
+          'Dataset: ${planet.dataset}',
           style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
         ),
         leading: Container(
@@ -399,138 +384,98 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
             color: const Color(0xFF60A5FA).withOpacity(0.2),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(
-            Icons.star,
-            color: Color(0xFF60A5FA),
-          ),
+          child: const Icon(Icons.public, color: Color(0xFF60A5FA)),
         ),
         iconColor: const Color(0xFF60A5FA),
         collapsedIconColor: const Color(0xFF60A5FA),
-        children: planets.map((planet) => _buildPlanetItem(planet)).toList(),
+        children: [_buildAllFields(planet.allFields)],
       ),
     );
   }
 
-  Widget _buildPlanetItem(ExoplanetData planet) {
+  Widget _buildAllFields(Map<String, dynamic> fields) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.2),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: const Color(0xFF475569),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFF475569), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  planet.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getDispositionColor(planet.disposition),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  planet.disposition,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            'Total de campos: ${fields.length}',
+            style: const TextStyle(
+              color: Color(0xFF60A5FA),
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
           ),
-          const SizedBox(height: 12),
-          _buildDataRow(
-              'Período', '${planet.period?.toStringAsFixed(2) ?? 'N/A'} días'),
-          _buildDataRow(
-              'Radio', '${planet.radius?.toStringAsFixed(2) ?? 'N/A'} R⊕'),
-          _buildDataRow(
-              'Temp. Estelar', '${planet.teff?.toStringAsFixed(0) ?? 'N/A'} K'),
-          _buildDataRow('Dataset', planet.dataset),
+          const Divider(color: Color(0xFF475569), height: 24),
+          ...fields.entries.map((entry) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      entry.key,
+                      style: const TextStyle(
+                        color: Color(0xFF60A5FA),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      _formatValue(entry.value),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
         ],
       ),
     );
   }
 
-  Color _getDispositionColor(String disposition) {
-    switch (disposition.toUpperCase()) {
-      case 'CONFIRMED':
-        return Colors.green;
-      case 'CANDIDATE':
-        return Colors.orange;
-      case 'FALSE POSITIVE':
-        return Colors.red;
-      default:
-        return Colors.grey;
+  String _formatValue(dynamic value) {
+    if (value == null) return 'null';
+    if (value is double) {
+      return value.toStringAsFixed(6);
     }
-  }
-
-  Widget _buildDataRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF94A3B8),
-              fontSize: 13,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
+    if (value is int) return value.toString();
+    if (value is bool) return value.toString();
+    return value.toString();
   }
 }
 
 class ExoplanetData {
   final String name;
-  final double? period;
-  final double? duration;
-  final double? depth;
-  final double? radius;
-  final double? insolation;
-  final double? teff;
-  final double? srad;
   final String dataset;
-  final String disposition;
+  final Map<String, dynamic> allFields;
 
   ExoplanetData({
     required this.name,
-    this.period,
-    this.duration,
-    this.depth,
-    this.radius,
-    this.insolation,
-    this.teff,
-    this.srad,
     required this.dataset,
-    required this.disposition,
+    required this.allFields,
   });
 }

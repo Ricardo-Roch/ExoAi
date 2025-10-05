@@ -12,7 +12,20 @@
           "package_name": "com.example.exo_ai"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "267129806875-paqhq29j8b8b5npffcu9jdngfnobrkej.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.exo_ai",
+            "certificate_hash": "ec4783878b013985d1d79cb9fcc5567fb631ed85"
+          }
+        },
+        {
+          "client_id": "267129806875-b0ec90dnq67rm6o41vsc66diegd9bef0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyA6UmMS7mlEFlD4U0IHSEXg1-2epOfxwyU"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "267129806875-b0ec90dnq67rm6o41vsc66diegd9bef0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "267129806875-f16m62kli3eqhr00ar7g1dolnttk1c8n.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.exoAi"
+              }
+            }
+          ]
         }
       }
     }
