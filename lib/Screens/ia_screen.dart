@@ -392,6 +392,7 @@ Proporciona un análisis breve (máximo 100 palabras) en español explicando:
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
@@ -456,58 +457,67 @@ Proporciona un análisis breve (máximo 100 palabras) en español explicando:
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Predicción de Exoplanetas',
-                              style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'Análisis con IA avanzada',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Color(0xFF94A3B8),
-                              ),
-                            ),
-                          ],
+                        Text(
+                          'Predicción de Exoplanetas',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
-                        Row(
-                          children: [
-                            IconButton(
-                              onPressed: _loadExampleData,
-                              icon: const Icon(Icons.file_copy,
-                                  color: Colors.white),
-                              tooltip: 'Cargar ejemplo',
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.blue[600],
-                                padding: const EdgeInsets.all(12),
+                        SizedBox(height: 8),
+                        Text(
+                          'Análisis con IA avanzada',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Color(0xFF94A3B8),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Botones reubicados debajo del título
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _loadExampleData,
+                            icon: const Icon(Icons.file_copy, size: 18),
+                            label: const Text('Ejemplo'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue[600],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              onPressed: _pickAndProcessCSV,
-                              icon: const Icon(Icons.upload_file,
-                                  color: Colors.white),
-                              tooltip: 'Cargar CSV',
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.green[600],
-                                padding: const EdgeInsets.all(12),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _pickAndProcessCSV,
+                            icon: const Icon(Icons.upload_file, size: 18),
+                            label: const Text('Cargar CSV'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green[600],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 24),
+
                     if (!_isBatchMode) ...[
                       // Formulario individual
                       Container(
