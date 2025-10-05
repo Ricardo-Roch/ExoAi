@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../Servicios/gemini_service.dart';
+import '../widgets/profile_avatar_menu.dart'; // Agregar al inicio del archivo
 
 class HomeContent extends StatefulWidget {
   final String userName;

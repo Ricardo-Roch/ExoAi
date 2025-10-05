@@ -19,6 +19,8 @@ dependencies:
   timeago: ^3.7.0
   image_picker: ^1.2.0
   google_sign_in: ^6.2.1
+  file_picker: ^8.0.0+1
+
   
 
 dev_dependencies:

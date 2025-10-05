@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../Servicios/BackendExoplanetService.dart';
 
 // Modelo de datos para Exoplaneta
 class Exoplanet {
@@ -11,6 +13,7 @@ class Exoplanet {
   final String description;
   final String colorHex;
   final String imageHint;
+  final ExoplanetData? data;
 
   Exoplanet({
     required this.name,
@@ -22,94 +25,73 @@ class Exoplanet {
     required this.description,
     required this.colorHex,
     required this.imageHint,
+    this.data,
   });
 
-  // Convierte el color hex a Color de Flutter (fallback)
   Color get color {
     final hexColor = colorHex.replaceAll('#', '');
     return Color(int.parse('FF$hexColor', radix: 16));
   }
 
-  // Color PREDICTIVO basado en física real
   Color get predictiveColor {
     return _calculatePredictiveColor(temperatureK, type, radiusEarth);
   }
 
   static Color _calculatePredictiveColor(
       int temperature, String type, double radius) {
-    // Planetas muy fríos (< 150K): Hielo de metano, nitrógeno
     if (temperature < 150) {
-      return Color.lerp(
-          Color(0xFF2C3E50), Color(0xFF34495E), 0.5)!; // Gris azulado oscuro
+      return Color.lerp(Color(0xFF2C3E50), Color(0xFF34495E), 0.5)!;
     }
 
-    // Fríos con hielo de agua (150-273K)
     if (temperature < 273) {
       if (type.contains("Rocky")) {
-        return Color.lerp(
-            Color(0xFF7F8C8D), Color(0xFFBDC3C7), 0.6)!; // Gris plateado
+        return Color.lerp(Color(0xFF7F8C8D), Color(0xFFBDC3C7), 0.6)!;
       }
-      return Color.lerp(
-          Color(0xFF3498DB), Color(0xFFECF0F1), 0.7)!; // Azul hielo
+      return Color.lerp(Color(0xFF3498DB), Color(0xFFECF0F1), 0.7)!;
     }
 
-    // Zona habitable con agua líquida (273-373K)
     if (temperature >= 273 && temperature < 373) {
       if (type == "Ocean world") {
-        return Color(0xFF1E90FF); // Azul océano profundo
+        return Color(0xFF1E90FF);
       }
       if (type == "Earth-like") {
-        return Color.lerp(
-            Color(0xFF27AE60), Color(0xFF3498DB), 0.5)!; // Verde-azul
+        return Color.lerp(Color(0xFF27AE60), Color(0xFF3498DB), 0.5)!;
       }
       if (type.contains("Rocky")) {
-        return Color.lerp(
-            Color(0xFF8B4513), Color(0xFFCD853F), 0.5)!; // Marrón rocoso
+        return Color.lerp(Color(0xFF8B4513), Color(0xFFCD853F), 0.5)!;
       }
     }
 
-    // Caliente (373-600K)
     if (temperature >= 373 && temperature < 600) {
       if (type.contains("Neptune")) {
-        return Color.lerp(Color(0xFF9B59B6), Color(0xFF3498DB),
-            0.6)!; // Púrpura-azul (metano)
+        return Color.lerp(Color(0xFF9B59B6), Color(0xFF3498DB), 0.6)!;
       }
-      return Color.lerp(
-          Color(0xFFE67E22), Color(0xFFF39C12), 0.5)!; // Naranja cálido
+      return Color.lerp(Color(0xFFE67E22), Color(0xFFF39C12), 0.5)!;
     }
 
-    // Muy caliente (600-1000K)
     if (temperature >= 600 && temperature < 1000) {
       if (type.contains("Neptune") || type.contains("Mini")) {
-        return Color.lerp(
-            Color(0xFF8E44AD), Color(0xFFE74C3C), 0.4)!; // Violeta-rojo
+        return Color.lerp(Color(0xFF8E44AD), Color(0xFFE74C3C), 0.4)!;
       }
-      return Color.lerp(
-          Color(0xFFE74C3C), Color(0xFFF39C12), 0.6)!; // Rojo-naranja
+      return Color.lerp(Color(0xFFE74C3C), Color(0xFFF39C12), 0.6)!;
     }
 
-    // Extremadamente caliente (1000-1500K) - Hot Jupiters
     if (temperature >= 1000 && temperature < 1500) {
       if (type.contains("Jupiter") && radius > 10) {
-        // Hot Jupiters son azul profundo por dispersión de sodio
-        return Color(0xFF0047AB); // Azul cobalto intenso
+        return Color(0xFF0047AB);
       }
-      return Color.lerp(
-          Color(0xFFFF4500), Color(0xFFFF6347), 0.5)!; // Rojo brillante
+      return Color.lerp(Color(0xFFFF4500), Color(0xFFFF6347), 0.5)!;
     }
 
-    // Ultra caliente (> 1500K)
     if (temperature >= 1500) {
-      return Color.lerp(Color(0xFFFFFFFF), Color(0xFFFFD700),
-          0.3)!; // Blanco-amarillo brillante
+      return Color.lerp(Color(0xFFFFFFFF), Color(0xFFFFD700), 0.3)!;
     }
 
-    // Fallback por tipo
     if (type.contains("Gas") || type.contains("Jupiter")) {
-      return Color(0xFF4169E1); // Azul real
+      return Color(0xFF4169E1);
     }
 
-    return Color(0xFF95A5A6); // Gris por defecto
+    return Color(0xFF95A5A6);
   }
 }
 
@@ -122,10 +104,14 @@ class VisualizacionesScreen extends StatefulWidget {
 
 class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
   final PageController _pageController = PageController();
-  int _currentPage = 0;
+  final BackendExoplanetService _service = BackendExoplanetService();
 
-  // Lista de exoplanetas con tus datos
-  final List<Exoplanet> exoplanets = [
+  int _currentPage = 0;
+  List<Exoplanet> exoplanets = [];
+  bool _isLoading = true;
+
+  // Datos de respaldo si falla la API
+  final List<Exoplanet> _fallbackExoplanets = [
     Exoplanet(
       name: "Kepler-452b",
       radiusEarth: 1.63,
@@ -184,6 +170,120 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadExoplanets();
+  }
+
+  Future<void> _loadExoplanets() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final status = await _service.getTrainStatus();
+
+      if (status['data_available'] == false) {
+        await _service.fetchDatasets();
+      }
+
+      final preview = await _service.getDatasetPreview(n: 20);
+      final exoplanetsData = _service.parseExoplanetsFromPreview(preview);
+
+      if (exoplanetsData.isNotEmpty) {
+        // Convertir ExoplanetData a Exoplanet con clasificación
+        List<Exoplanet> loadedExoplanets = [];
+        for (var data in exoplanetsData.take(10)) {
+          final type = _classifyExoplanet(data);
+          final temp = _estimateTemperature(data);
+
+          loadedExoplanets.add(Exoplanet(
+            name: data.name,
+            radiusEarth: data.radius ?? 1.0,
+            temperatureK: temp,
+            distanceLy: 100, // Distancia estimada
+            type: type,
+            starType: _classifyStarType(data.teff ?? 5778),
+            description: _generateDescription(data, type),
+            colorHex: "#4A90E2",
+            imageHint: "",
+            data: data,
+          ));
+        }
+
+        setState(() {
+          exoplanets = loadedExoplanets;
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('No data available');
+      }
+    } catch (e) {
+      print('Error loading exoplanets: $e');
+      setState(() {
+        exoplanets = _fallbackExoplanets;
+        _isLoading = false;
+      });
+    }
+  }
+
+  String _classifyExoplanet(ExoplanetData data) {
+    final radius = data.radius ?? 1.0;
+    final temp = _estimateTemperature(data);
+
+    if (radius < 1.25) {
+      if (temp >= 273 && temp <= 373) {
+        return "Earth-like";
+      }
+      return "Rocky";
+    } else if (radius < 2.0) {
+      return "Super-Earth";
+    } else if (radius < 4.0) {
+      if (temp > 500) {
+        return "Mini-Neptune";
+      }
+      return "Neptune-like";
+    } else {
+      if (temp > 1000) {
+        return "Hot Jupiter";
+      }
+      return "Gas Giant";
+    }
+  }
+
+  int _estimateTemperature(ExoplanetData data) {
+    final teff = data.teff ?? 5778;
+    final insol = data.insolation ?? 1.0;
+
+    // Estimación aproximada basada en insolación y temperatura estelar
+    final tempEstimate = (teff * 0.1 * insol).round();
+    return tempEstimate.clamp(100, 2000);
+  }
+
+  String _classifyStarType(double teff) {
+    if (teff >= 7500) return "A";
+    if (teff >= 6000) return "F";
+    if (teff >= 5200) return "G";
+    if (teff >= 3700) return "K";
+    return "M";
+  }
+
+  String _generateDescription(ExoplanetData data, String type) {
+    final radius = data.radius ?? 1.0;
+    final temp = _estimateTemperature(data);
+
+    if (type == "Earth-like") {
+      return "Potentially habitable planet with Earth-like characteristics.";
+    } else if (type == "Rocky") {
+      return "Rocky planet with possible geological activity.";
+    } else if (type.contains("Neptune")) {
+      return "Gas planet with thick atmosphere and possible storms.";
+    } else if (type.contains("Jupiter")) {
+      return "Massive gas giant with extreme weather patterns.";
+    }
+
+    return "Exoplanet with unique characteristics.";
+  }
+
+  @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
@@ -191,6 +291,8 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       backgroundColor: Colors.black,
       extendBody: true,
@@ -210,123 +312,157 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
         ),
         child: SafeArea(
           bottom: true,
-          child: Column(
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 30, 24, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Hi Explorer,',
-                      style: TextStyle(
-                        color: Colors.white60,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w300,
+          child: _isLoading
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: Color(0xFF60A5FA)),
+                      SizedBox(height: 16),
+                      Text(
+                        'Cargando exoplanetas...',
+                        style: TextStyle(color: Colors.white),
                       ),
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      'Which exoplanet',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        height: 1.2,
-                      ),
-                    ),
-                    Text(
-                      'would you like to explore?',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 36,
-                        fontWeight: FontWeight.w300,
-                        height: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Planet Carousel
-              Expanded(
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    PageView.builder(
-                      controller: _pageController,
-                      onPageChanged: (index) {
-                        setState(() {
-                          _currentPage = index;
-                        });
-                      },
-                      itemCount: exoplanets.length,
-                      itemBuilder: (context, index) {
-                        return _buildPlanetCard(exoplanets[index]);
-                      },
-                    ),
-
-                    // Navigation Arrows
-                    Positioned(
-                      left: 20,
-                      child: IconButton(
-                        icon: Icon(Icons.chevron_left,
-                            color: Colors.white, size: 32),
-                        onPressed: () {
-                          if (_currentPage > 0) {
-                            _pageController.previousPage(
-                              duration: Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        },
-                      ),
-                    ),
-                    Positioned(
-                      right: 20,
-                      child: IconButton(
-                        icon: Icon(Icons.chevron_right,
-                            color: Colors.white, size: 32),
-                        onPressed: () {
-                          if (_currentPage < exoplanets.length - 1) {
-                            _pageController.nextPage(
-                              duration: Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Page Indicator
-              Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(
-                    exoplanets.length,
-                    (index) => Container(
-                      margin: EdgeInsets.symmetric(horizontal: 4),
-                      width: _currentPage == index ? 24 : 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        color: _currentPage == index
-                            ? Colors.white
-                            : Colors.white.withOpacity(0.3),
-                      ),
-                    ),
+                    ],
                   ),
-                ),
-              ),
+                )
+              : Column(
+                  children: [
+                    // Header compacto
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Image.asset(
+                            'assets/images/Logo-02.png',
+                            height: 35,
+                            width: 35,
+                          ),
+                          const Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Explorador de Exoplanetas',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFF60A5FA),
+                                width: 2,
+                              ),
+                            ),
+                            child: CircleAvatar(
+                              radius: 16,
+                              backgroundColor: const Color(0xFF1E293B),
+                              backgroundImage: user?.photoURL != null
+                                  ? NetworkImage(user!.photoURL!)
+                                  : null,
+                              child: user?.photoURL == null
+                                  ? const Icon(
+                                      Icons.person,
+                                      size: 18,
+                                      color: Color(0xFF60A5FA),
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
-              SizedBox(height: 10),
-            ],
-          ),
+                    // Planet Carousel
+                    Expanded(
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          PageView.builder(
+                            controller: _pageController,
+                            onPageChanged: (index) {
+                              setState(() {
+                                _currentPage = index;
+                              });
+                            },
+                            itemCount: exoplanets.length,
+                            itemBuilder: (context, index) {
+                              return _buildPlanetCard(exoplanets[index]);
+                            },
+                          ),
+
+                          // Navigation Arrows
+                          Positioned(
+                            left: 20,
+                            child: IconButton(
+                              icon: const Icon(Icons.chevron_left,
+                                  color: Colors.white, size: 32),
+                              onPressed: () {
+                                if (_currentPage > 0) {
+                                  _pageController.previousPage(
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeInOut,
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                          Positioned(
+                            right: 20,
+                            child: IconButton(
+                              icon: const Icon(Icons.chevron_right,
+                                  color: Colors.white, size: 32),
+                              onPressed: () {
+                                if (_currentPage < exoplanets.length - 1) {
+                                  _pageController.nextPage(
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeInOut,
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Page Indicator
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          exoplanets.length,
+                          (index) => Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            width: _currentPage == index ? 24 : 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(4),
+                              color: _currentPage == index
+                                  ? Colors.white
+                                  : Colors.white.withOpacity(0.3),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+                  ],
+                ),
         ),
       ),
     );
@@ -337,43 +473,43 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SizedBox(height: 20),
+          const SizedBox(height: 10),
 
           // Orbital animation container
           Container(
-            width: 350,
-            height: 350,
+            width: 320,
+            height: 320,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 // Orbits
                 CustomPaint(
-                  size: Size(350, 350),
+                  size: const Size(320, 320),
                   painter: OrbitPainter(),
                 ),
 
                 // Planet Image con gradiente radial
                 Container(
-                  width: 280,
-                  height: 280,
+                  width: 250,
+                  height: 250,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        planet.color.withOpacity(0.8),
-                        planet.color.withOpacity(0.4),
+                        planet.predictiveColor.withOpacity(0.8),
+                        planet.predictiveColor.withOpacity(0.4),
                         Colors.transparent,
                       ],
-                      stops: [0.5, 0.8, 1.0],
+                      stops: const [0.5, 0.8, 1.0],
                     ),
                   ),
                   child: Container(
-                    margin: EdgeInsets.all(40),
+                    margin: const EdgeInsets.all(35),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: planet.color.withOpacity(0.6),
+                          color: planet.predictiveColor.withOpacity(0.6),
                           blurRadius: 50,
                           spreadRadius: 20,
                         ),
@@ -381,8 +517,8 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
                     ),
                     child: ClipOval(
                       child: SizedBox(
-                        width: 200,
-                        height: 200,
+                        width: 180,
+                        height: 180,
                         child: CustomPaint(
                           painter: PlanetPainter(planet: planet),
                         ),
@@ -393,25 +529,25 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
 
                 // Orbital dots
                 Positioned(
-                  top: 45,
-                  right: 100,
+                  top: 40,
+                  right: 90,
                   child: _buildOrbitDot(),
                 ),
                 Positioned(
-                  bottom: 70,
-                  left: 90,
+                  bottom: 60,
+                  left: 80,
                   child: _buildOrbitDot(),
                 ),
               ],
             ),
           ),
 
-          SizedBox(height: 30),
+          const SizedBox(height: 20),
 
           // Planet Info Card
           Container(
-            margin: EdgeInsets.symmetric(horizontal: 24),
-            padding: EdgeInsets.all(24),
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.05),
               borderRadius: BorderRadius.circular(20),
@@ -426,46 +562,47 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
                 // Planet Name
                 Text(
                   planet.name,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 28,
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
 
                 // Planet Type
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: planet.color.withOpacity(0.3),
+                    color: planet.predictiveColor.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     planet.type.toUpperCase(),
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1.5,
                     ),
                   ),
                 ),
 
-                SizedBox(height: 16),
+                const SizedBox(height: 12),
 
                 // Description
                 Text(
                   planet.description,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white70,
-                    fontSize: 14,
-                    height: 1.5,
+                    fontSize: 13,
+                    height: 1.4,
                   ),
                 ),
 
-                SizedBox(height: 20),
+                const SizedBox(height: 16),
 
                 // Stats Grid
                 Row(
@@ -473,11 +610,11 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
                     Expanded(
                       child: _buildStatCard(
                         'Radius',
-                        '${planet.radiusEarth}x Earth',
+                        '${planet.radiusEarth.toStringAsFixed(2)}x Earth',
                         Icons.radio_button_unchecked,
                       ),
                     ),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: _buildStatCard(
                         'Temp',
@@ -487,7 +624,7 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
                     ),
                   ],
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Row(
                   children: [
                     Expanded(
@@ -497,7 +634,7 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
                         Icons.straighten,
                       ),
                     ),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: _buildStatCard(
                         'Star Type',
@@ -507,11 +644,36 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
                     ),
                   ],
                 ),
+
+                // Si hay datos adicionales, mostrarlos
+                if (planet.data != null) ...[
+                  const SizedBox(height: 12),
+                  const Divider(color: Colors.white24),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Datos Adicionales:',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (planet.data!.period != null)
+                    _buildDataRow('Período:',
+                        '${planet.data!.period!.toStringAsFixed(2)} días'),
+                  if (planet.data!.insolation != null)
+                    _buildDataRow('Insolación:',
+                        '${planet.data!.insolation!.toStringAsFixed(2)} S⊕'),
+                  if (planet.data!.teff != null)
+                    _buildDataRow('Temp. Estelar:',
+                        '${planet.data!.teff!.toStringAsFixed(0)} K'),
+                ],
               ],
             ),
           ),
 
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -519,7 +681,7 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
 
   Widget _buildStatCard(String label, String value, IconData icon) {
     return Container(
-      padding: EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
@@ -534,27 +696,56 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
             children: [
               Icon(
                 icon,
-                size: 14,
+                size: 12,
                 color: Colors.white60,
               ),
-              SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: Colors.white60,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
-              fontSize: 15,
+              fontSize: 13,
               fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDataRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: 11,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -564,8 +755,8 @@ class _VisualizacionesScreenState extends State<VisualizacionesScreen> {
 
   Widget _buildOrbitDot() {
     return Container(
-      width: 14,
-      height: 14,
+      width: 12,
+      height: 12,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white,
@@ -589,7 +780,6 @@ class OrbitPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
-    // Draw multiple elliptical orbits
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(size.width / 2, size.height / 2),
@@ -624,30 +814,24 @@ class PlanetPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final baseRadius = size.width / 2;
 
-    // El radio del planeta afecta su tamaño visual (más grande = más radio)
     final radiusScale = (planet.radiusEarth * 0.3 + 0.7).clamp(0.6, 1.0);
     final radius = baseRadius * radiusScale;
 
-    // Temperatura afecta los colores (más caliente = más brillante/rojizo)
     final tempFactor = (planet.temperatureK / 1500).clamp(0.0, 1.0);
     final coolFactor = 1.0 - tempFactor;
 
-    // Ajustar color base según temperatura
     Color adjustedColor =
-        _adjustColorByTemperature(planet.color, planet.temperatureK);
+        _adjustColorByTemperature(planet.predictiveColor, planet.temperatureK);
 
-    // Base del planeta con gradiente afectado por temperatura
     final planetPaint = Paint()
       ..shader = RadialGradient(
         colors: tempFactor > 0.6
             ? [
-                // Planetas calientes: centro brillante
                 adjustedColor.withOpacity(1.0),
                 adjustedColor,
                 adjustedColor.withOpacity(0.6),
               ]
             : [
-                // Planetas fríos: más uniformes
                 adjustedColor.withOpacity(0.85),
                 adjustedColor,
                 adjustedColor.withOpacity(0.8),
@@ -657,7 +841,6 @@ class PlanetPainter extends CustomPainter {
 
     canvas.drawCircle(center, radius, planetPaint);
 
-    // Características según el tipo de planeta
     if (planet.type == "Earth-like" || planet.type == "Rocky") {
       _drawRockyFeatures(canvas, center, radius, planet.temperatureK);
     } else if (planet.type == "Ocean world") {
@@ -668,7 +851,6 @@ class PlanetPainter extends CustomPainter {
           canvas, center, radius, planet.temperatureK, planet.radiusEarth);
     }
 
-    // Brillo atmosférico más intenso en planetas grandes y calientes
     final glowIntensity =
         (planet.radiusEarth * 0.15 + tempFactor * 0.3).clamp(0.2, 0.5);
     final glowSize = radius * (0.5 + planet.radiusEarth * 0.05);
@@ -685,7 +867,6 @@ class PlanetPainter extends CustomPainter {
 
     canvas.drawCircle(center, glowSize, glowPaint);
 
-    // Emisión de calor en planetas muy calientes
     if (planet.temperatureK > 800) {
       final heatGlowPaint = Paint()
         ..shader = RadialGradient(
@@ -700,7 +881,6 @@ class PlanetPainter extends CustomPainter {
       canvas.drawCircle(center, radius * 1.2, heatGlowPaint);
     }
 
-    // Sombra (terminador) - más pronunciada en planetas fríos
     final shadowPath = Path()
       ..addOval(Rect.fromCircle(center: center, radius: radius));
 
@@ -717,7 +897,6 @@ class PlanetPainter extends CustomPainter {
 
     canvas.drawPath(shadowPath, shadowPaint);
 
-    // Capa de hielo en planetas muy fríos
     if (planet.temperatureK < 280) {
       _drawIceLayer(canvas, center, radius, planet.temperatureK);
     }
@@ -725,13 +904,10 @@ class PlanetPainter extends CustomPainter {
 
   Color _adjustColorByTemperature(Color baseColor, int temperature) {
     if (temperature > 800) {
-      // Planetas muy calientes: añadir tonos rojos/naranjas
       return Color.lerp(baseColor, Colors.orange, 0.3)!;
     } else if (temperature > 500) {
-      // Calientes: añadir amarillo
       return Color.lerp(baseColor, Colors.yellow.shade700, 0.2)!;
     } else if (temperature < 280) {
-      // Muy fríos: añadir azul/blanco
       return Color.lerp(baseColor, Colors.blue.shade100, 0.3)!;
     }
     return baseColor;
@@ -743,9 +919,8 @@ class PlanetPainter extends CustomPainter {
 
     final icePaint = Paint()
       ..color = Colors.white.withOpacity(0.3 * iceCoverage)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8);
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
 
-    // Capas polares
     canvas.drawCircle(
       Offset(center.dx, center.dy - radius * 0.6),
       radius * 0.3,
@@ -757,39 +932,17 @@ class PlanetPainter extends CustomPainter {
       radius * 0.3,
       icePaint,
     );
-
-    // Cristales de hielo
-    final crystalPaint = Paint()
-      ..color = Colors.white.withOpacity(0.6)
-      ..style = PaintingStyle.fill;
-
-    for (int i = 0; i < (iceCoverage * 15).toInt(); i++) {
-      final angle = i * 0.4;
-      final dist = radius * 0.7;
-      canvas.drawCircle(
-        Offset(
-          center.dx + dist * 0.5 * (i % 3 - 1),
-          center.dy - radius * 0.5 + (i * radius * 0.1),
-        ),
-        2,
-        crystalPaint,
-      );
-    }
   }
 
   void _drawRockyFeatures(
       Canvas canvas, Offset center, double radius, int temperature) {
-    // Más cráteres en planetas fríos (menos actividad geológica)
     final craterCount = temperature < 300 ? 5 : 3;
-
-    // Cráteres más visibles en planetas fríos
     final craterOpacity = temperature < 300 ? 0.3 : 0.2;
 
     final craterPaint = Paint()
       ..color = Colors.black.withOpacity(craterOpacity)
       ..style = PaintingStyle.fill;
 
-    // Dibujar cráteres de diferentes tamaños
     final craterSizes = [0.15, 0.1, 0.12, 0.08, 0.11];
     final craterPositions = [
       Offset(center.dx - radius * 0.3, center.dy - radius * 0.2),
@@ -804,11 +957,10 @@ class PlanetPainter extends CustomPainter {
           craterPositions[i], radius * craterSizes[i], craterPaint);
     }
 
-    // Actividad volcánica en planetas calientes
     if (temperature > 400) {
       final lavaPaint = Paint()
         ..color = Colors.orange.withOpacity(0.4)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10);
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
 
       canvas.drawCircle(
         Offset(center.dx - radius * 0.3, center.dy + radius * 0.2),
@@ -820,17 +972,14 @@ class PlanetPainter extends CustomPainter {
 
   void _drawOceanFeatures(
       Canvas canvas, Offset center, double radius, int temperature) {
-    // Temperatura afecta el estado del agua
     final isLiquid = temperature > 273 && temperature < 373;
     final isFrozen = temperature <= 273;
 
     if (isFrozen) {
-      // Océano congelado
       final icePaint = Paint()
         ..color = Colors.white.withOpacity(0.4)
         ..style = PaintingStyle.fill;
 
-      // Placas de hielo
       canvas.drawOval(
         Rect.fromCenter(
           center: Offset(center.dx - radius * 0.3, center.dy),
@@ -839,17 +988,7 @@ class PlanetPainter extends CustomPainter {
         ),
         icePaint,
       );
-
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(center.dx + radius * 0.4, center.dy + radius * 0.3),
-          width: radius * 0.5,
-          height: radius * 0.35,
-        ),
-        icePaint,
-      );
     } else if (isLiquid) {
-      // Agua líquida con olas
       final wavePaint = Paint()
         ..color = Colors.white.withOpacity(0.3)
         ..style = PaintingStyle.stroke
@@ -871,40 +1010,18 @@ class PlanetPainter extends CustomPainter {
 
         canvas.drawPath(path, wavePaint);
       }
-
-      // Brillo de agua más intenso en temperaturas templadas
-      final waterGlowPaint = Paint()
-        ..color = Colors.white.withOpacity(0.5)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 15);
-
-      canvas.drawCircle(
-        Offset(center.dx + radius * 0.2, center.dy - radius * 0.3),
-        radius * 0.3,
-        waterGlowPaint,
-      );
-    } else {
-      // Vapor de agua (muy caliente)
-      final vaporPaint = Paint()
-        ..color = Colors.white.withOpacity(0.2)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 20);
-
-      canvas.drawCircle(center, radius * 0.8, vaporPaint);
     }
   }
 
   void _drawGasGiantFeatures(Canvas canvas, Offset center, double radius,
       int temperature, double radiusEarth) {
-    // Más bandas en planetas más grandes
     final bandCount = (3 + radiusEarth * 0.5).toInt().clamp(3, 8);
-
     final bandPaint = Paint()..style = PaintingStyle.fill;
 
-    // Dibujar bandas atmosféricas
     for (int i = 0; i < bandCount; i++) {
       final bandY = center.dy - radius * 0.7 + (i * radius * 1.4 / bandCount);
       final bandHeight = radius * 0.28;
 
-      // Bandas más activas en planetas calientes
       final opacity = temperature > 600 ? 0.15 : 0.1;
 
       bandPaint.color = i % 2 == 0
@@ -923,7 +1040,6 @@ class PlanetPainter extends CustomPainter {
       canvas.drawRRect(bandRect, bandPaint);
     }
 
-    // Tormentas más grandes e intensas en planetas grandes y calientes
     if (planet.type.contains("Jupiter") || temperature > 800) {
       final stormSize = radius * (0.3 + radiusEarth * 0.05);
       final stormIntensity = (temperature / 1500).clamp(0.3, 0.7);
@@ -932,7 +1048,7 @@ class PlanetPainter extends CustomPainter {
         ..color = temperature > 1000
             ? Colors.orange.withOpacity(stormIntensity)
             : Colors.red.withOpacity(stormIntensity * 0.6)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 12);
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
 
       canvas.drawOval(
         Rect.fromCenter(
@@ -941,37 +1057,6 @@ class PlanetPainter extends CustomPainter {
           height: stormSize * 0.7,
         ),
         stormPaint,
-      );
-
-      // Tormenta secundaria en planetas muy grandes
-      if (radiusEarth > 10) {
-        canvas.drawOval(
-          Rect.fromCenter(
-            center: Offset(center.dx - radius * 0.4, center.dy - radius * 0.3),
-            width: stormSize * 0.6,
-            height: stormSize * 0.4,
-          ),
-          stormPaint,
-        );
-      }
-    }
-
-    // Remolinos más numerosos en planetas grandes
-    final swirlCount = (radiusEarth * 0.3).toInt().clamp(1, 3);
-
-    final swirlPaint = Paint()
-      ..color = Colors.white.withOpacity(0.25)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    for (int i = 0; i < swirlCount; i++) {
-      canvas.drawCircle(
-        Offset(
-          center.dx - radius * 0.4 + (i * radius * 0.4),
-          center.dy - radius * 0.3 + (i * radius * 0.2),
-        ),
-        radius * 0.12,
-        swirlPaint,
       );
     }
   }

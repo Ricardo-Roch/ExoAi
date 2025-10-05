@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../Servicios/BackendExoplanetService.dart';
+import '../Servicios/gemini_service.dart';
 
 class ExoplanetScreen extends StatefulWidget {
   const ExoplanetScreen({Key? key}) : super(key: key);
@@ -10,10 +12,67 @@ class ExoplanetScreen extends StatefulWidget {
 }
 
 class _ExoplanetScreenState extends State<ExoplanetScreen> {
+  final BackendExoplanetService _service = BackendExoplanetService();
+  final GeminiService _geminiService = GeminiService();
+
   List<ExoplanetData> _exoplanets = [];
   bool _isLoading = true;
   String? _errorMessage;
-  String? _rawJson; // Para debug
+  Map<String, dynamic>? _backendStatus;
+
+  // Datos fijos de respaldo
+  final List<ExoplanetData> _fallbackExoplanets = [
+    ExoplanetData(
+      name: 'Kepler-452b',
+      period: 384.84,
+      duration: 10.5,
+      depth: 0.0014,
+      radius: 1.63,
+      insolation: 1.11,
+      teff: 5757,
+      srad: 1.11,
+    ),
+    ExoplanetData(
+      name: 'TRAPPIST-1e',
+      period: 6.10,
+      duration: 0.54,
+      depth: 0.0066,
+      radius: 0.92,
+      insolation: 0.66,
+      teff: 2559,
+      srad: 0.12,
+    ),
+    ExoplanetData(
+      name: 'Kepler-22b',
+      period: 289.86,
+      duration: 6.8,
+      depth: 0.0018,
+      radius: 2.4,
+      insolation: 1.11,
+      teff: 5518,
+      srad: 0.98,
+    ),
+    ExoplanetData(
+      name: 'Proxima Centauri b',
+      period: 11.19,
+      duration: 1.2,
+      depth: 0.0008,
+      radius: 1.17,
+      insolation: 0.65,
+      teff: 3042,
+      srad: 0.15,
+    ),
+    ExoplanetData(
+      name: 'GJ 1214b',
+      period: 1.58,
+      duration: 0.95,
+      depth: 0.014,
+      radius: 2.7,
+      insolation: 16.3,
+      teff: 3250,
+      srad: 0.21,
+    ),
+  ];
 
   @override
   void initState() {
@@ -28,103 +87,214 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
     });
 
     try {
-      final response = await http.get(
-        Uri.parse('https://back-exoai.onrender.com/datasets/preview?n=50'),
-      );
+      // 1. Verificar estado del backend
+      final health = await _service.checkHealth();
+      setState(() => _backendStatus = health);
 
-      if (response.statusCode == 200) {
-        _rawJson = response.body; // Guarda el JSON crudo para debug
-        final jsonData = jsonDecode(response.body);
+      // 2. Verificar si hay datos
+      final status = await _service.getTrainStatus();
 
-        print('JSON Structure: ${jsonData.keys}'); // Debug
-
-        _exoplanets = _parseExoplanets(jsonData);
-
-        setState(() {
-          _isLoading = false;
-        });
-      } else {
-        throw Exception('Error ${response.statusCode}: ${response.body}');
+      // 3. Si no hay datos, descargarlos
+      if (status['data_available'] == false) {
+        await _service.fetchDatasets();
       }
-    } catch (e) {
-      print('Error completo: $e'); // Debug
+
+      // 4. Obtener preview de exoplanetas
+      final preview = await _service.getDatasetPreview(n: 100);
+
+      // 5. Parsear exoplanetas
+      final exoplanets = _service.parseExoplanetsFromPreview(preview);
+
       setState(() {
-        _errorMessage = e.toString();
+        _exoplanets = exoplanets.isNotEmpty ? exoplanets : _fallbackExoplanets;
+        _isLoading = false;
+      });
+    } catch (e) {
+      // En caso de error, usar datos de respaldo
+      setState(() {
+        _exoplanets = _fallbackExoplanets;
+        _errorMessage = 'Usando datos locales: ${e.toString()}';
         _isLoading = false;
       });
     }
   }
 
-  List<ExoplanetData> _parseExoplanets(Map<String, dynamic> jsonData) {
-    List<ExoplanetData> exoplanets = [];
+  Future<void> _analyzeExoplanet(ExoplanetData exoplanet) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: Color(0xFF60A5FA)),
+            const SizedBox(height: 16),
+            Text(
+              'Analizando ${exoplanet.name} con Gemini AI...',
+              style: const TextStyle(color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
 
-    // Verifica si tiene la estructura de "datasets"
-    if (jsonData.containsKey('datasets')) {
-      final datasets = jsonData['datasets'] as Map<String, dynamic>;
+    try {
+      // Crear prompt específico para exoplanetas
+      final prompt = '''
+Eres un experto en exoplanetas. Analiza este exoplaneta y destaca lo más interesante:
 
-      datasets.forEach((datasetName, datasetContent) {
-        if (datasetContent is Map && datasetContent.containsKey('head')) {
-          final items = datasetContent['head'] as List;
-          print('Dataset $datasetName tiene ${items.length} items'); // Debug
+Nombre: ${exoplanet.name}
+Radio: ${exoplanet.radius?.toStringAsFixed(2) ?? 'N/A'} R⊕ (radios terrestres)
+Período orbital: ${exoplanet.period?.toStringAsFixed(2) ?? 'N/A'} días
+Temperatura estelar: ${exoplanet.teff?.toStringAsFixed(0) ?? 'N/A'} K
+Insolación: ${exoplanet.insolation?.toStringAsFixed(2) ?? 'N/A'} S⊕
+Radio estelar: ${exoplanet.srad?.toStringAsFixed(2) ?? 'N/A'} R☉
 
-          for (var item in items) {
-            String? planetName = _extractPlanetName(item, datasetName);
+Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
+1. Lo más notable de este exoplaneta
+2. Su potencial para albergar vida (si aplica)
+3. Comparación con la Tierra
+4. Características únicas o interesantes
+''';
 
-            if (planetName != null) {
-              exoplanets.add(ExoplanetData(
-                name: planetName,
-                dataset: datasetName,
-                allFields: Map<String, dynamic>.from(item),
-              ));
-            }
-          }
-        }
+      // Llamar a Gemini con el prompt personalizado
+      final response = await _geminiService.analyzeSpaceLaunch({
+        'nombre': exoplanet.name,
+        'proveedor': 'Kepler/TESS Mission',
+        'missionName': 'Exoplanet Discovery',
+        'missionDescription': prompt,
+        'status': 'Discovered',
       });
-    } else {
-      // Si no tiene "datasets", intenta parsear directamente
-      jsonData.forEach((datasetName, datasetContent) {
-        if (datasetContent is Map && datasetContent.containsKey('head')) {
-          final items = datasetContent['head'] as List;
 
-          for (var item in items) {
-            String? planetName = _extractPlanetName(item, datasetName);
+      if (!mounted) return;
+      Navigator.of(context).pop();
 
-            if (planetName != null) {
-              exoplanets.add(ExoplanetData(
-                name: planetName,
-                dataset: datasetName,
-                allFields: Map<String, dynamic>.from(item),
-              ));
-            }
-          }
-        }
-      });
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF1E293B),
+                  Color(0xFF0F172A),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF60A5FA),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF60A5FA).withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF60A5FA).withOpacity(0.1),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(18),
+                      topRight: Radius.circular(18),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF60A5FA).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome,
+                          color: Color(0xFF60A5FA),
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Análisis Gemini AI',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              exoplanet.name,
+                              style: const TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      response,
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 15,
+                        height: 1.8,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al analizar: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
-
-    print('Total planetas parseados: ${exoplanets.length}'); // Debug
-    exoplanets.sort((a, b) => a.name.compareTo(b.name));
-    return exoplanets;
-  }
-
-  String? _extractPlanetName(Map<String, dynamic> item, String datasetName) {
-    // Intenta múltiples campos según el dataset
-    if (datasetName == 'cumulative') {
-      return item['kepler_name'] ?? item['kepoi_name'];
-    } else if (datasetName == 'TOI') {
-      return item['toipfxstr'] ?? item['tidstr'] ?? 'TOI-${item['toipfx']}';
-    } else if (datasetName == 'k2pandc') {
-      return item['k2_name'] ?? item['pl_name'];
-    }
-
-    // Fallback: busca cualquier campo con "name"
-    return item['pl_name'] ??
-        item['kepler_name'] ??
-        item['k2_name'] ??
-        item['name'];
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -139,196 +309,168 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
           ),
         ),
         child: SafeArea(
-          child: _isLoading
-              ? const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(color: Color(0xFF60A5FA)),
-                      SizedBox(height: 16),
-                      Text(
-                        'Cargando exoplanetas...',
-                        style: TextStyle(color: Colors.white),
+          child: Column(
+            children: [
+              // Header con logo
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Image.asset(
+                      'assets/images/Logo-02.png',
+                      height: 40,
+                      width: 40,
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFF60A5FA),
+                          width: 2,
+                        ),
                       ),
-                    ],
-                  ),
-                )
-              : _errorMessage != null
-                  ? _buildError()
-                  : _buildContent(),
-        ),
-      ),
-    );
-  }
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: const Color(0xFF1E293B),
+                        backgroundImage: user?.photoURL != null
+                            ? NetworkImage(user!.photoURL!)
+                            : null,
+                        child: user?.photoURL == null
+                            ? const Icon(
+                                Icons.person,
+                                size: 20,
+                                color: Color(0xFF60A5FA),
+                              )
+                            : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-  Widget _buildError() {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 64),
-            const SizedBox(height: 16),
-            const Text(
-              'Error al cargar datos',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _errorMessage!,
-              style: TextStyle(color: Colors.grey[400]),
-              textAlign: TextAlign.center,
-            ),
-            if (_rawJson != null) ...[
-              const SizedBox(height: 16),
-              const Text(
-                'JSON recibido:',
-                style:
-                    TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _rawJson!.substring(
-                      0, _rawJson!.length > 500 ? 500 : _rawJson!.length),
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 10,
-                    fontFamily: 'monospace',
-                  ),
-                ),
+              // Contenido
+              Expanded(
+                child: _isLoading
+                    ? const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(color: Color(0xFF60A5FA)),
+                            SizedBox(height: 16),
+                            Text(
+                              'Cargando exoplanetas...',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _buildContent(),
               ),
             ],
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _loadData,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Reintentar'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF60A5FA),
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildContent() {
-    if (_exoplanets.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.search_off, size: 64, color: Color(0xFF60A5FA)),
-            const SizedBox(height: 16),
-            const Text(
-              'No se encontraron exoplanetas',
-              style: TextStyle(color: Colors.white, fontSize: 18),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _loadData,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Recargar'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF60A5FA),
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
     return RefreshIndicator(
       onRefresh: _loadData,
       color: const Color(0xFF60A5FA),
       child: CustomScrollView(
         slivers: [
-          SliverAppBar(
-            expandedHeight: 200,
-            pinned: true,
-            backgroundColor: const Color(0xFF0F172A),
-            flexibleSpace: FlexibleSpaceBar(
-              title: const Text(
-                'Exoplanetas',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF60A5FA).withOpacity(0.3),
-                      const Color(0xFF0F172A),
-                    ],
-                  ),
-                ),
-                child: const Center(
-                  child: Icon(Icons.public, size: 80, color: Color(0xFF60A5FA)),
-                ),
-              ),
-            ),
-          ),
+          // Stats card
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Base de Datos de Exoplanetas',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF334155), width: 1),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildStatItem(
-                        'Total', '${_exoplanets.length}', Icons.public),
-                    _buildStatItem(
-                        'Datasets', _getUniqueDatasets(), Icons.dataset),
-                  ],
-                ),
+                  const SizedBox(height: 8),
+                  if (_errorMessage != null)
+                    Text(
+                      _errorMessage!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.orange,
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF1E293B),
+                          Color(0xFF0F172A),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFF334155),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatItem(
+                          'Total',
+                          '${_exoplanets.length}',
+                          Icons.explore,
+                        ),
+                        _buildStatItem(
+                          'Backend',
+                          _backendStatus?['status'] == 'healthy'
+                              ? 'OK'
+                              : 'Local',
+                          Icons.cloud,
+                        ),
+                        _buildStatItem(
+                          'Modelo',
+                          _backendStatus?['model_ready'] == true
+                              ? 'Listo'
+                              : 'No',
+                          Icons.memory,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
+
+          // Lista de exoplanetas
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
-                (context, index) => _buildPlanetCard(_exoplanets[index]),
+                (context, index) {
+                  final exoplanet = _exoplanets[index];
+                  return _buildExoplanetCard(exoplanet);
+                },
                 childCount: _exoplanets.length,
               ),
             ),
           ),
+
           const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
         ],
       ),
     );
-  }
-
-  String _getUniqueDatasets() {
-    final datasets = _exoplanets.map((e) => e.dataset).toSet();
-    return '${datasets.length}';
   }
 
   Widget _buildStatItem(String label, String value, IconData icon) {
@@ -346,36 +488,45 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
         ),
         Text(
           label,
-          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+          style: const TextStyle(
+            color: Color(0xFF94A3B8),
+            fontSize: 12,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildPlanetCard(ExoplanetData planet) {
+  Widget _buildExoplanetCard(ExoplanetData exoplanet) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+          colors: [
+            Color(0xFF1E293B),
+            Color(0xFF0F172A),
+          ],
         ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF334155), width: 1),
+        border: Border.all(
+          color: const Color(0xFF334155),
+          width: 1,
+        ),
       ),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         title: Text(
-          planet.name,
+          exoplanet.name,
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 18,
+            fontSize: 16,
           ),
         ),
         subtitle: Text(
-          'Dataset: ${planet.dataset}',
+          'Radio: ${exoplanet.radius?.toStringAsFixed(2) ?? 'N/A'} R⊕',
           style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
         ),
         leading: Container(
@@ -384,98 +535,98 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
             color: const Color(0xFF60A5FA).withOpacity(0.2),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.public, color: Color(0xFF60A5FA)),
+          child: const Icon(
+            Icons.public,
+            color: Color(0xFF60A5FA),
+          ),
         ),
         iconColor: const Color(0xFF60A5FA),
         collapsedIconColor: const Color(0xFF60A5FA),
-        children: [_buildAllFields(planet.allFields)],
-      ),
-    );
-  }
-
-  Widget _buildAllFields(Map<String, dynamic> fields) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF475569), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Total de campos: ${fields.length}',
-            style: const TextStyle(
-              color: Color(0xFF60A5FA),
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.2),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(12),
+                bottomRight: Radius.circular(12),
+              ),
+            ),
+            child: Column(
+              children: [
+                _buildDataRow('Período Orbital',
+                    '${exoplanet.period?.toStringAsFixed(2) ?? 'N/A'} días'),
+                _buildDataRow('Duración Tránsito',
+                    '${exoplanet.duration?.toStringAsFixed(2) ?? 'N/A'} h'),
+                _buildDataRow('Profundidad',
+                    '${exoplanet.depth?.toStringAsFixed(4) ?? 'N/A'}'),
+                _buildDataRow('Insolación',
+                    '${exoplanet.insolation?.toStringAsFixed(2) ?? 'N/A'} S⊕'),
+                _buildDataRow('Temp. Estelar',
+                    '${exoplanet.teff?.toStringAsFixed(0) ?? 'N/A'} K'),
+                _buildDataRow('Radio Estelar',
+                    '${exoplanet.srad?.toStringAsFixed(2) ?? 'N/A'} R☉'),
+                const SizedBox(height: 16),
+
+                // Botón de Gemini
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _analyzeExoplanet(exoplanet),
+                    icon: const Icon(Icons.auto_awesome, size: 20),
+                    label: const Text(
+                      'Analizar con Gemini AI',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF60A5FA),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 4,
+                      shadowColor: const Color(0xFF60A5FA).withOpacity(0.5),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const Divider(color: Color(0xFF475569), height: 24),
-          ...fields.entries.map((entry) {
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      entry.key,
-                      style: const TextStyle(
-                        color: Color(0xFF60A5FA),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      _formatValue(entry.value),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                      ),
-                      textAlign: TextAlign.right,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
         ],
       ),
     );
   }
 
-  String _formatValue(dynamic value) {
-    if (value == null) return 'null';
-    if (value is double) {
-      return value.toStringAsFixed(6);
-    }
-    if (value is int) return value.toString();
-    if (value is bool) return value.toString();
-    return value.toString();
+  Widget _buildDataRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF94A3B8),
+              fontSize: 13,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
   }
-}
-
-class ExoplanetData {
-  final String name;
-  final String dataset;
-  final Map<String, dynamic> allFields;
-
-  ExoplanetData({
-    required this.name,
-    required this.dataset,
-    required this.allFields,
-  });
 }
