@@ -5,6 +5,7 @@ import '../Servicios/community_service.dart';
 import '../models/user_model.dart';
 import '../models/post_model.dart';
 import '../widgets/post_card.dart';
+import 'followers_following_screens.dart'; // <- Este import
 
 class UserProfileScreen extends StatefulWidget {
   final String userId;
