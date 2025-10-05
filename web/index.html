@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base href="/ExoAi/">
-
+  <!-- SIN base href - todo relativo -->
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="ExoAI - Exploración de Exoplanetas con IA">
@@ -34,18 +33,18 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 100vh;
+      min-height: 100vh;
       font-family: 'Roboto', sans-serif;
     }
     
-    .loading {
+    #loading {
       text-align: center;
       color: white;
     }
     
-    .loading h1 {
-      font-size: 2rem;
-      margin-bottom: 1rem;
+    #loading h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1.5rem;
       background: linear-gradient(90deg, #60A5FA, #3B82F6);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -65,18 +64,25 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+
+    .status {
+      margin-top: 1rem;
+      color: #94A3B8;
+      font-size: 0.9rem;
+    }
   </style>
 </head>
 <body>
-  <div class="loading">
+  <div id="loading">
     <h1>🌌 ExoAI</h1>
     <div class="spinner"></div>
-    <p style="margin-top: 1rem; color: #94A3B8;">Cargando exploración espacial...</p>
+    <p class="status">Cargando exploración espacial...</p>
   </div>
 
   <!-- Inicializar Firebase -->
   <script>
-    // Tu configuración de Firebase
+    console.log('🔥 Inicializando Firebase...');
+    
     const firebaseConfig = {
       apiKey: "AIzaSyBCqtbaI8ff3x3nAu2tt1fPnc2fb5x4210",
       authDomain: "exoai-70c21.firebaseapp.com",
@@ -87,8 +93,12 @@
       measurementId: "G-R3EHZ1DEJQ"
     };
 
-    // Inicializar Firebase
-    firebase.initializeApp(firebaseConfig);
+    try {
+      firebase.initializeApp(firebaseConfig);
+      console.log('✅ Firebase inicializado correctamente');
+    } catch (error) {
+      console.error('❌ Error al inicializar Firebase:', error);
+    }
   </script>
 
   <!-- Cargar Flutter después de Firebase -->
