@@ -906,12 +906,12 @@ class _HomeContentState extends State<HomeContent> {
                                 const Row(
                                   children: [
                                     Icon(Icons.rocket_launch,
-                                        color: Color(0xFF60A5FA)),
+                                        color: Color(0xFF60A5FA), size: 20),
                                     SizedBox(width: 8),
                                     Text(
                                       'Próximos Lanzamientos',
                                       style: TextStyle(
-                                        fontSize: 24,
+                                        fontSize: 20,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.white,
                                       ),
@@ -929,7 +929,7 @@ class _HomeContentState extends State<HomeContent> {
                                   ),
                               ],
                             ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 20),
                             if (_isLoadingLaunches)
                               const Center(
                                 child: Padding(
@@ -938,7 +938,7 @@ class _HomeContentState extends State<HomeContent> {
                                     'Cargando lanzamientos...',
                                     style: TextStyle(
                                       color: Color(0xFF64748B),
-                                      fontSize: 14,
+                                      fontSize: 13,
                                     ),
                                   ),
                                 ),
@@ -951,7 +951,7 @@ class _HomeContentState extends State<HomeContent> {
                                     'No hay lanzamientos próximos',
                                     style: TextStyle(
                                       color: Color(0xFF64748B),
-                                      fontSize: 14,
+                                      fontSize: 13,
                                     ),
                                   ),
                                 ),
@@ -971,8 +971,8 @@ class _HomeContentState extends State<HomeContent> {
                                     _getProgress(lanzamiento['fecha']);
 
                                 return Container(
-                                  margin: const EdgeInsets.only(bottom: 20),
-                                  padding: const EdgeInsets.all(20),
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
                                     color: enLanzamiento
                                         ? const Color(0xFF60A5FA)
@@ -1026,7 +1026,7 @@ class _HomeContentState extends State<HomeContent> {
                                                       children: [
                                                         Icon(
                                                           Icons.star,
-                                                          size: 14,
+                                                          size: 12,
                                                           color: Colors.white,
                                                         ),
                                                         SizedBox(width: 4),
@@ -1034,7 +1034,7 @@ class _HomeContentState extends State<HomeContent> {
                                                           'MISIÓN EXOPLANETA',
                                                           style: TextStyle(
                                                             color: Colors.white,
-                                                            fontSize: 10,
+                                                            fontSize: 9,
                                                             fontWeight:
                                                                 FontWeight.bold,
                                                           ),
@@ -1047,7 +1047,7 @@ class _HomeContentState extends State<HomeContent> {
                                                   style: const TextStyle(
                                                     color: Colors.white,
                                                     fontWeight: FontWeight.bold,
-                                                    fontSize: 16,
+                                                    fontSize: 14,
                                                   ),
                                                   maxLines: 2,
                                                   overflow:
@@ -1058,8 +1058,8 @@ class _HomeContentState extends State<HomeContent> {
                                           ),
                                           Container(
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 6,
+                                              horizontal: 10,
+                                              vertical: 5,
                                             ),
                                             decoration: BoxDecoration(
                                               color: enLanzamiento
@@ -1074,18 +1074,17 @@ class _HomeContentState extends State<HomeContent> {
                                               lanzamiento['status'],
                                               style: const TextStyle(
                                                 color: Colors.white,
-                                                fontSize: 11,
+                                                fontSize: 10,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 16),
-
+                                      const SizedBox(height: 12),
                                       if (enProceso || enLanzamiento)
                                         Container(
-                                          padding: const EdgeInsets.all(16),
+                                          padding: const EdgeInsets.all(12),
                                           decoration: BoxDecoration(
                                             color:
                                                 Colors.black.withOpacity(0.3),
@@ -1113,9 +1112,9 @@ class _HomeContentState extends State<HomeContent> {
                                                             0xFF60A5FA)
                                                         : const Color(
                                                             0xFF10B981),
-                                                    size: 20,
+                                                    size: 18,
                                                   ),
-                                                  const SizedBox(width: 8),
+                                                  const SizedBox(width: 6),
                                                   Text(
                                                     enLanzamiento
                                                         ? '¡EN VUELO!'
@@ -1126,41 +1125,40 @@ class _HomeContentState extends State<HomeContent> {
                                                               0xFF60A5FA)
                                                           : const Color(
                                                               0xFF10B981),
-                                                      fontSize: 12,
+                                                      fontSize: 11,
                                                       fontWeight:
                                                           FontWeight.bold,
-                                                      letterSpacing: 1.2,
+                                                      letterSpacing: 1,
                                                     ),
                                                   ),
                                                 ],
                                               ),
-                                              const SizedBox(height: 12),
+                                              const SizedBox(height: 10),
                                               Text(
                                                 countdown,
                                                 style: TextStyle(
                                                   color: enLanzamiento
                                                       ? const Color(0xFF60A5FA)
                                                       : Colors.white,
-                                                  fontSize: 32,
+                                                  fontSize: 26,
                                                   fontWeight: FontWeight.bold,
-                                                  letterSpacing: 2,
+                                                  letterSpacing: 1.5,
                                                 ),
                                               ),
                                             ],
                                           ),
                                         ),
-
                                       if (enProceso && !enLanzamiento)
                                         Column(
                                           children: [
-                                            const SizedBox(height: 16),
+                                            const SizedBox(height: 12),
                                             Row(
                                               children: [
                                                 const Text(
                                                   'Progreso al lanzamiento',
                                                   style: TextStyle(
                                                     color: Color(0xFF94A3B8),
-                                                    fontSize: 12,
+                                                    fontSize: 11,
                                                   ),
                                                 ),
                                                 const Spacer(),
@@ -1168,7 +1166,7 @@ class _HomeContentState extends State<HomeContent> {
                                                   '${(progress * 100).toInt()}%',
                                                   style: const TextStyle(
                                                     color: Color(0xFF10B981),
-                                                    fontSize: 12,
+                                                    fontSize: 11,
                                                     fontWeight: FontWeight.bold,
                                                   ),
                                                 ),
@@ -1184,17 +1182,14 @@ class _HomeContentState extends State<HomeContent> {
                                                     const Color(0xFF334155),
                                                 valueColor:
                                                     const AlwaysStoppedAnimation<
-                                                        Color>(
-                                                  Color(0xFF10B981),
-                                                ),
-                                                minHeight: 8,
+                                                            Color>(
+                                                        Color(0xFF10B981)),
+                                                minHeight: 6,
                                               ),
                                             ),
                                           ],
                                         ),
-
-                                      const SizedBox(height: 16),
-
+                                      const SizedBox(height: 12),
                                       Container(
                                         padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
@@ -1226,42 +1221,38 @@ class _HomeContentState extends State<HomeContent> {
                                           ],
                                         ),
                                       ),
-
                                       if (lanzamiento['missionDescription'] !=
                                               '' &&
                                           lanzamiento['missionDescription'] !=
                                               'N/A')
                                         Column(
                                           children: [
-                                            const SizedBox(height: 12),
+                                            const SizedBox(height: 10),
                                             Text(
                                               lanzamiento['missionDescription'],
                                               style: const TextStyle(
                                                 color: Color(0xFF94A3B8),
-                                                fontSize: 12,
-                                                height: 1.5,
+                                                fontSize: 11,
+                                                height: 1.4,
                                               ),
                                               maxLines: 3,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ],
                                         ),
-
-                                      const SizedBox(height: 16),
-
-                                      // BOTÓN DE GEMINI
+                                      const SizedBox(height: 12),
                                       SizedBox(
                                         width: double.infinity,
                                         child: ElevatedButton.icon(
                                           onPressed: () =>
                                               _showGeminiAnalysis(lanzamiento),
                                           icon: const Icon(Icons.auto_awesome,
-                                              size: 20),
+                                              size: 18),
                                           label: const Text(
                                             'Analizar con Gemini AI',
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 14,
+                                              fontSize: 13,
                                             ),
                                           ),
                                           style: ElevatedButton.styleFrom(
@@ -1269,8 +1260,8 @@ class _HomeContentState extends State<HomeContent> {
                                                 const Color(0xFF60A5FA),
                                             foregroundColor: Colors.white,
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 20,
-                                              vertical: 14,
+                                              horizontal: 16,
+                                              vertical: 12,
                                             ),
                                             shape: RoundedRectangleBorder(
                                               borderRadius:
