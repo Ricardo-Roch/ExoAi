@@ -1,7 +1,16 @@
+// lib/Screens/profile_screen.dart (ACTUALIZADO)
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../Servicios/firebase_auth_service.dart';
+import '../Servicios/user_service.dart';
+import '../Servicios/community_service.dart';
+import '../models/user_model.dart';
+import '../models/post_model.dart';
+import '../widgets/post_card.dart';
 import 'login_screen.dart';
+import 'edit_profile_screen.dart';
+import 'search_users_screen.dart';
+import 'followers_following_screens.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userName;
@@ -15,23 +24,42 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   int _selectedTab = 0;
   final FirebaseAuthService _authService = FirebaseAuthService();
+  final UserService _userService = UserService();
+  final CommunityService _communityService = CommunityService();
 
   Future<void> _handleLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Cerrar Sesión'),
-        content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFF334155), width: 1),
+        ),
+        title: const Text(
+          'Cerrar Sesión',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          '¿Estás seguro de que deseas cerrar sesión?',
+          style: TextStyle(color: Color(0xFF94A3B8)),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Color(0xFF60A5FA)),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: Colors.red[600],
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text('Cerrar Sesión'),
           ),
@@ -54,210 +82,304 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = _authService.currentUser;
-    final userEmail = user?.email ?? '';
-    final photoURL = user?.photoURL;
+    if (user == null) return const SizedBox();
 
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Header con banner y foto de perfil
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                // Banner superior
-                Container(
-                  height: 250,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.blue[100]!,
-                        Colors.purple[100]!,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: CustomPaint(
-                    painter: WavePainter(),
-                    size: Size.infinite,
-                  ),
-                ),
+    return StreamBuilder<UserModel?>(
+      stream: _userService.getUserProfileStream(user.uid),
+      builder: (context, snapshot) {
+        final userModel = snapshot.data;
 
-                // Estadísticas en la parte superior
-                Positioned(
-                  top: 40,
-                  left: 0,
-                  right: 0,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 40),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildStatColumn('3', 'Posts', Icons.description),
-                        _buildStatColumn('100', 'Followers', Icons.people),
-                        _buildStatColumn('300', 'Following', Icons.person_add),
-                      ],
-                    ),
+        return Scaffold(
+          backgroundColor: const Color(0xFF0F172A),
+          body: CustomScrollView(
+            slivers: [
+              // AppBar con banner
+              SliverAppBar(
+                expandedHeight: 200,
+                pinned: true,
+                backgroundColor: const Color(0xFF1E293B),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.search),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SearchUsersScreen(),
+                        ),
+                      );
+                    },
                   ),
-                ),
-
-                // Foto de perfil
-                Positioned(
-                  top: 150,
-                  left: MediaQuery.of(context).size.width / 2 - 60,
-                  child: Container(
-                    width: 120,
-                    height: 120,
+                  IconButton(
+                    icon: const Icon(Icons.logout),
+                    onPressed: _handleLogout,
+                  ),
+                ],
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Container(
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFF60A5FA).withOpacity(0.3),
+                          const Color(0xFF1E293B),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Contenido del perfil
+              SliverToBoxAdapter(
+                child: Transform.translate(
+                  offset: const Offset(0, -50),
+                  child: Column(
+                    children: [
+                      // Foto de perfil
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFF60A5FA),
+                            width: 4,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF60A5FA).withOpacity(0.5),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: CircleAvatar(
+                          radius: 60,
+                          backgroundColor: const Color(0xFF1E293B),
+                          backgroundImage: user.photoURL != null
+                              ? NetworkImage(user.photoURL!)
+                              : null,
+                          child: user.photoURL == null
+                              ? const Icon(
+                                  Icons.person,
+                                  size: 60,
+                                  color: Color(0xFF60A5FA),
+                                )
+                              : null,
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Nombre
+                      Text(
+                        userModel?.displayName ?? widget.userName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Email
+                      Text(
+                        user.email ?? '',
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 14,
+                        ),
+                      ),
+
+                      if (userModel?.bio != null &&
+                          userModel!.bio!.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 32),
+                          child: Text(
+                            userModel.bio!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
+                          ),
                         ),
                       ],
-                    ),
-                    child: CircleAvatar(
-                      backgroundColor: Colors.blue[200],
-                      backgroundImage:
-                          photoURL != null ? NetworkImage(photoURL) : null,
-                      child: photoURL == null
-                          ? Icon(
-                              Icons.person,
-                              size: 60,
-                              color: Colors.blue[800],
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-              ],
-            ),
 
-            const SizedBox(height: 70),
+                      const SizedBox(height: 24),
 
-            // Nombre y descripción
-            Text(
-              widget.userName,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Designer',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
-            ),
+                      // Estadísticas
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 24),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFF1E293B),
+                              Color(0xFF0F172A),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: const Color(0xFF334155),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildStatColumn(
+                              'Posts',
+                              '${userModel?.postsCount ?? 0}',
+                              Icons.article,
+                            ),
+                            Container(
+                              width: 1,
+                              height: 40,
+                              color: const Color(0xFF334155),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => FollowersListScreen(
+                                      userId: user.uid,
+                                      title: 'Seguidores',
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: _buildStatColumn(
+                                'Seguidores',
+                                '${userModel?.followersCount ?? 0}',
+                                Icons.people,
+                              ),
+                            ),
+                            Container(
+                              width: 1,
+                              height: 40,
+                              color: const Color(0xFF334155),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => FollowingListScreen(
+                                      userId: user.uid,
+                                      title: 'Siguiendo',
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: _buildStatColumn(
+                                'Siguiendo',
+                                '${userModel?.followingCount ?? 0}',
+                                Icons.person_add,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
 
-            const SizedBox(height: 20),
+                      const SizedBox(height: 24),
 
-            // Botones sociales
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildSocialButton(Icons.facebook, Colors.blue[700]!),
-                const SizedBox(width: 12),
-                _buildSocialButton(Icons.code, Colors.cyan),
-                const SizedBox(width: 12),
-                _buildSocialButton(Icons.send, Colors.pink[400]!),
-                const SizedBox(width: 12),
-                _buildSocialButton(Icons.insert_link, Colors.red[700]!),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // Tabs
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.all(4),
-              child: Row(
-                children: [
-                  _buildTab('Profile', 0),
-                  _buildTab('Followers', 1),
-                  _buildTab('Comunidad', 2),
-                  _buildTab('Articulos', 3),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Contenido según tab seleccionado
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              child: _selectedTab == 0
-                  ? _buildProfileContent(userEmail)
-                  : Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(40),
-                        child: Text(
-                          'Contenido de ${[
-                            "Profile",
-                            "Followers",
-                            "Comunidad",
-                            "Gallery"
-                          ][_selectedTab]}',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[600],
+                      // Botón de editar perfil
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const EditProfileScreen(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.edit),
+                            label: const Text(
+                              'Editar Perfil',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF60A5FA),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-            ),
-          ],
-        ),
-      ),
+
+                      const SizedBox(height: 24),
+
+                      // Tabs
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 24),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.all(4),
+                        child: Row(
+                          children: [
+                            _buildTab('Mis Posts', 0),
+                            _buildTab('Feed', 1),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Contenido según tab seleccionado
+              _selectedTab == 0 ? _buildMyPosts() : _buildFeed(),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildStatColumn(String count, String label, IconData icon) {
+  Widget _buildStatColumn(String label, String value, IconData icon) {
     return Column(
       children: [
-        Icon(icon, color: Colors.black87, size: 28),
+        Icon(icon, color: const Color(0xFF60A5FA), size: 28),
         const SizedBox(height: 8),
         Text(
-          count,
+          value,
           style: const TextStyle(
-            fontSize: 20,
+            color: Colors.white,
+            fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: Colors.black87,
           ),
         ),
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
+            color: Color(0xFF94A3B8),
             fontSize: 12,
-            color: Colors.grey[600],
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildSocialButton(IconData icon, Color color) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-      ),
-      child: Icon(icon, color: Colors.white, size: 20),
     );
   }
 
@@ -273,339 +395,153 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
+            color: isSelected ? const Color(0xFF60A5FA) : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : [],
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                _getIconForTab(index),
-                size: 18,
-                color: isSelected ? Colors.indigo : Colors.grey[600],
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  color: isSelected ? Colors.black87 : Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  IconData _getIconForTab(int index) {
-    switch (index) {
-      case 0:
-        return Icons.person;
-      case 1:
-        return Icons.favorite;
-      case 2:
-        return Icons.people;
-      case 3:
-        return Icons.photo_library;
-      default:
-        return Icons.person;
-    }
-  }
-
-  Widget _buildProfileContent(String userEmail) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Sección Introduction
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Introduction',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.logout, color: Colors.red[400]),
-                    onPressed: _handleLogout,
-                    tooltip: 'Cerrar sesión',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Hola, soy ${widget.userName}. Me encanta explorar exoplanetas y trabajar con inteligencia artificial.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildInfoRow(Icons.school, 'ExoAI Platform'),
-              const SizedBox(height: 8),
-              _buildInfoRow(Icons.email, userEmail),
-              const SizedBox(height: 8),
-              _buildInfoRow(Icons.link, 'www.exoai.com'),
-              const SizedBox(height: 8),
-              _buildInfoRow(Icons.location_on, 'México'),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        // Sección para crear post
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              TextField(
-                decoration: InputDecoration(
-                  hintText: 'Comparte tus pensamientos',
-                  border: InputBorder.none,
-                  hintStyle: TextStyle(color: Colors.grey[400]),
-                ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  _buildPostButton(
-                      Icons.photo_library, 'Foto / Video', Colors.indigo),
-                  const SizedBox(width: 12),
-                  _buildPostButton(Icons.article, 'Artículo', Colors.teal),
-                  const Spacer(),
-                  ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigo,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text('Publicar'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        // Post de ejemplo
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: Colors.blue[200],
-                    backgroundImage: _authService.currentUser?.photoURL != null
-                        ? NetworkImage(_authService.currentUser!.photoURL!)
-                        : null,
-                    child: _authService.currentUser?.photoURL == null
-                        ? Icon(Icons.person, color: Colors.blue[800])
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.userName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      Text(
-                        'Hace 18 minutos',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '¡Acabo de descubrir un nuevo exoplaneta fascinante usando IA! Los datos muestran características únicas que podrían indicar la presencia de agua. Emocionado de compartir más detalles pronto.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[700],
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.blue[300]!, Colors.blue[200]!],
-                    ),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.public,
-                      size: 80,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 40),
-      ],
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String text) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: Colors.grey[600]),
-        const SizedBox(width: 12),
-        Expanded(
           child: Text(
-            text,
+            label,
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[700],
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              color: Colors.white,
             ),
-            overflow: TextOverflow.ellipsis,
           ),
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildPostButton(IconData icon, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              color: color,
-              fontWeight: FontWeight.w500,
+  Widget _buildMyPosts() {
+    final user = _authService.currentUser;
+    if (user == null) return const SliverToBoxAdapter(child: SizedBox());
+
+    return StreamBuilder<List<Post>>(
+      stream: _communityService.getUserPosts(user.uid),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SliverToBoxAdapter(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: CircularProgressIndicator(),
+              ),
             ),
+          );
+        }
+
+        final posts = snapshot.data ?? [];
+
+        if (posts.isEmpty) {
+          return SliverToBoxAdapter(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(64),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.article_outlined,
+                      size: 64,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No has publicado nada aún',
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => PostCard(post: posts[index]),
+            childCount: posts.length,
           ),
-        ],
-      ),
+        );
+      },
     );
   }
-}
 
-class WavePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.2)
-      ..style = PaintingStyle.fill;
+  Widget _buildFeed() {
+    return StreamBuilder<List<Post>>(
+      stream: _communityService.getFollowingPosts(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SliverToBoxAdapter(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          );
+        }
 
-    final path = Path();
-    path.moveTo(0, size.height * 0.7);
-    path.quadraticBezierTo(
-      size.width * 0.25,
-      size.height * 0.5,
-      size.width * 0.5,
-      size.height * 0.6,
+        final posts = snapshot.data ?? [];
+
+        if (posts.isEmpty) {
+          return SliverToBoxAdapter(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(64),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.people_outline,
+                      size: 64,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Sigue a usuarios para ver su contenido',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const SearchUsersScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.search),
+                      label: const Text('Buscar Usuarios'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF60A5FA),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => PostCard(post: posts[index]),
+            childCount: posts.length,
+          ),
+        );
+      },
     );
-    path.quadraticBezierTo(
-      size.width * 0.75,
-      size.height * 0.7,
-      size.width,
-      size.height * 0.5,
-    );
-    path.lineTo(size.width, size.height);
-    path.lineTo(0, size.height);
-    path.close();
-
-    canvas.drawPath(path, paint);
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

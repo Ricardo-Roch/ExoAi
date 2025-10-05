@@ -1,3 +1,4 @@
+// lib/Servicios/community_service.dart (ACTUALIZADO)
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/post_model.dart';
@@ -7,7 +8,6 @@ class CommunityService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Obtener usuario actual
   User? get currentUser => _auth.currentUser;
 
   // POSTS
@@ -20,7 +20,11 @@ class CommunityService {
     final user = currentUser;
     if (user == null) throw Exception('Usuario no autenticado');
 
-    await _firestore.collection('posts').add({
+    final batch = _firestore.batch();
+
+    // Crear el post
+    final postRef = _firestore.collection('posts').doc();
+    batch.set(postRef, {
       'userId': user.uid,
       'userName': user.displayName ?? 'Usuario',
       'userPhoto': user.photoURL,
@@ -31,6 +35,14 @@ class CommunityService {
       'commentsCount': 0,
       'createdAt': FieldValue.serverTimestamp(),
     });
+
+    // Incrementar contador de posts del usuario
+    final userRef = _firestore.collection('users').doc(user.uid);
+    batch.update(userRef, {
+      'postsCount': FieldValue.increment(1),
+    });
+
+    await batch.commit();
   }
 
   // Obtener posts (stream en tiempo real)
@@ -38,10 +50,40 @@ class CommunityService {
     return _firestore
         .collection('posts')
         .orderBy('createdAt', descending: true)
+        .limit(50)
         .snapshots()
         .map((snapshot) {
       return snapshot.docs.map((doc) => Post.fromFirestore(doc)).toList();
     });
+  }
+
+  // Obtener posts de usuarios que sigue (feed personalizado)
+  Stream<List<Post>> getFollowingPosts() {
+    final user = currentUser;
+    if (user == null) return Stream.value([]);
+
+    return _firestore.collection('users').doc(user.uid).snapshots().asyncMap(
+      (userDoc) async {
+        if (!userDoc.exists) return <Post>[];
+
+        final following = List<String>.from(userDoc.data()?['following'] ?? []);
+        if (following.isEmpty) return <Post>[];
+
+        // Agregar el propio usuario a la lista
+        following.add(user.uid);
+
+        final postsSnapshot = await _firestore
+            .collection('posts')
+            .where('userId', whereIn: following)
+            .orderBy('createdAt', descending: true)
+            .limit(50)
+            .get();
+
+        return postsSnapshot.docs
+            .map((doc) => Post.fromFirestore(doc))
+            .toList();
+      },
+    );
   }
 
   // Obtener posts de un usuario específico
@@ -67,7 +109,7 @@ class CommunityService {
     if (!postDoc.exists) return;
 
     final likes = List<String>.from(postDoc.data()?['likes'] ?? []);
-    
+
     if (likes.contains(user.uid)) {
       // Quitar like
       await postRef.update({
@@ -89,21 +131,30 @@ class CommunityService {
     if (user == null) return;
 
     final postDoc = await _firestore.collection('posts').doc(postId).get();
-    
+
     // Verificar que el usuario sea el dueño del post
     if (postDoc.data()?['userId'] == user.uid) {
+      final batch = _firestore.batch();
+
       // Eliminar comentarios del post
       final comments = await _firestore
           .collection('comments')
           .where('postId', isEqualTo: postId)
           .get();
-      
+
       for (var comment in comments.docs) {
-        await comment.reference.delete();
+        batch.delete(comment.reference);
       }
-      
+
       // Eliminar el post
-      await _firestore.collection('posts').doc(postId).delete();
+      batch.delete(_firestore.collection('posts').doc(postId));
+
+      // Decrementar contador de posts del usuario
+      batch.update(_firestore.collection('users').doc(user.uid), {
+        'postsCount': FieldValue.increment(-1),
+      });
+
+      await batch.commit();
     }
   }
 
@@ -117,8 +168,11 @@ class CommunityService {
     final user = currentUser;
     if (user == null) throw Exception('Usuario no autenticado');
 
+    final batch = _firestore.batch();
+
     // Agregar comentario
-    await _firestore.collection('comments').add({
+    final commentRef = _firestore.collection('comments').doc();
+    batch.set(commentRef, {
       'postId': postId,
       'userId': user.uid,
       'userName': user.displayName ?? 'Usuario',
@@ -128,9 +182,12 @@ class CommunityService {
     });
 
     // Incrementar contador de comentarios en el post
-    await _firestore.collection('posts').doc(postId).update({
+    final postRef = _firestore.collection('posts').doc(postId);
+    batch.update(postRef, {
       'commentsCount': FieldValue.increment(1),
     });
+
+    await batch.commit();
   }
 
   // Obtener comentarios de un post
@@ -150,16 +207,21 @@ class CommunityService {
     final user = currentUser;
     if (user == null) return;
 
-    final commentDoc = await _firestore.collection('comments').doc(commentId).get();
-    
+    final commentDoc =
+        await _firestore.collection('comments').doc(commentId).get();
+
     // Verificar que el usuario sea el dueño del comentario
     if (commentDoc.data()?['userId'] == user.uid) {
-      await _firestore.collection('comments').doc(commentId).delete();
-      
+      final batch = _firestore.batch();
+
+      batch.delete(_firestore.collection('comments').doc(commentId));
+
       // Decrementar contador de comentarios en el post
-      await _firestore.collection('posts').doc(postId).update({
+      batch.update(_firestore.collection('posts').doc(postId), {
         'commentsCount': FieldValue.increment(-1),
       });
+
+      await batch.commit();
     }
   }
 
@@ -174,7 +236,11 @@ class CommunityService {
       'displayName': user.displayName ?? 'Usuario',
       'email': user.email ?? '',
       'photoURL': user.photoURL,
+      'followers': [],
+      'following': [],
+      'postsCount': 0,
       'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 }

@@ -70,3 +70,69 @@ class FirebaseAuthService {
     return null;
   }
 }
+
+Future<User?> signInWithGoogle() async {
+  try {
+    if (kIsWeb) {
+      final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+      final UserCredential userCredential = await _auth.signInWithPopup(
+        googleProvider,
+      );
+
+      // Crear/actualizar perfil de usuario
+      if (userCredential.user != null) {
+        await _createUserProfile(userCredential.user!);
+      }
+
+      return userCredential.user;
+    } else {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
+      if (googleUser == null) {
+        return null;
+      }
+
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCredential = await _auth.signInWithCredential(
+        credential,
+      );
+
+      // Crear/actualizar perfil de usuario
+      if (userCredential.user != null) {
+        await _createUserProfile(userCredential.user!);
+      }
+
+      return userCredential.user;
+    }
+  } catch (e) {
+    print('Error en inicio de sesion con Google: $e');
+    return null;
+  }
+}
+
+Future<void> _createUserProfile(User user) async {
+  final firestore = FirebaseFirestore.instance;
+  final userRef = firestore.collection('users').doc(user.uid);
+  final userDoc = await userRef.get();
+
+  if (!userDoc.exists) {
+    await userRef.set({
+      'displayName': user.displayName ?? 'Usuario',
+      'email': user.email ?? '',
+      'photoURL': user.photoURL,
+      'bio': '',
+      'followers': [],
+      'following': [],
+      'postsCount': 0,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+}
