@@ -6,71 +6,20 @@ import '../Servicios/community_service.dart';
 import '../widgets/comments_bottom_sheet.dart';
 import '../Screens/user_profile_screen.dart';
 
-class PostCard extends StatefulWidget {
+class PostCard extends StatelessWidget {
   final Post post;
 
   const PostCard({super.key, required this.post});
 
   @override
-  State<PostCard> createState() => _PostCardState();
-}
-
-class _PostCardState extends State<PostCard> {
-  late final CommunityService _communityService;
-  late bool _isLiked;
-  late int _likesCount;
-  late int _commentsCount;
-  bool _isProcessing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _communityService = CommunityService();
-    final currentUserId = _communityService.currentUser?.uid ?? '';
-    _isLiked = widget.post.isLikedBy(currentUserId);
-    _likesCount = widget.post.likesCount;
-    _commentsCount = widget.post.commentsCount;
-
-    // Configurar timeago en español una sola vez
-    timeago.setLocaleMessages('es', timeago.EsMessages());
-  }
-
-  Future<void> _handleLike() async {
-    if (_isProcessing) return;
-
-    setState(() {
-      _isProcessing = true;
-      _isLiked = !_isLiked;
-      _likesCount += _isLiked ? 1 : -1;
-    });
-
-    try {
-      await _communityService.toggleLike(widget.post.id);
-    } catch (e) {
-      // Revertir cambios si falla
-      setState(() {
-        _isLiked = !_isLiked;
-        _likesCount += _isLiked ? 1 : -1;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error al actualizar el like'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final currentUserId = _communityService.currentUser?.uid;
-    final isOwner = currentUserId == widget.post.userId;
+    final communityService = CommunityService();
+    final currentUserId = communityService.currentUser?.uid;
+    final isOwner = currentUserId == post.userId;
+    final isLiked = post.isLikedBy(currentUserId ?? '');
+
+    // Configurar timeago en español
+    timeago.setLocaleMessages('es', timeago.EsMessages());
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -107,7 +56,7 @@ class _PostCardState extends State<PostCard> {
 
             // Contenido del post
             Text(
-              widget.post.content,
+              post.content,
               style: const TextStyle(
                 fontSize: 15,
                 color: Colors.white,
@@ -116,7 +65,7 @@ class _PostCardState extends State<PostCard> {
             ),
 
             // Imagen si existe
-            if (widget.post.imageUrl != null) ...[
+            if (post.imageUrl != null) ...[
               const SizedBox(height: 16),
               _buildImage(),
             ],
@@ -129,7 +78,7 @@ class _PostCardState extends State<PostCard> {
             const SizedBox(height: 12),
 
             // Botones de interacción
-            _buildActionButtons(),
+            _buildActionButtons(context, isLiked, communityService),
           ],
         ),
       ),
@@ -153,13 +102,12 @@ class _PostCardState extends State<PostCard> {
             child: CircleAvatar(
               radius: 22,
               backgroundColor: const Color(0xFF1E293B),
-              backgroundImage: widget.post.userPhoto != null
-                  ? NetworkImage(widget.post.userPhoto!)
-                  : null,
-              child: widget.post.userPhoto == null
+              backgroundImage:
+                  post.userPhoto != null ? NetworkImage(post.userPhoto!) : null,
+              child: post.userPhoto == null
                   ? Text(
-                      widget.post.userName.isNotEmpty
-                          ? widget.post.userName[0].toUpperCase()
+                      post.userName.isNotEmpty
+                          ? post.userName[0].toUpperCase()
                           : '?',
                       style: const TextStyle(
                         color: Color(0xFF60A5FA),
@@ -178,7 +126,7 @@ class _PostCardState extends State<PostCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.post.userName,
+                  post.userName,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -187,7 +135,7 @@ class _PostCardState extends State<PostCard> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  timeago.format(widget.post.createdAt, locale: 'es'),
+                  timeago.format(post.createdAt, locale: 'es'),
                   style: const TextStyle(
                     color: Color(0xFF94A3B8),
                     fontSize: 12,
@@ -203,7 +151,7 @@ class _PostCardState extends State<PostCard> {
               Icons.more_vert,
               color: Color(0xFF94A3B8),
             ),
-            onPressed: () => _showOptions(context, widget.post.id),
+            onPressed: () => _showOptions(context, post.id),
           ),
       ],
     );
@@ -213,7 +161,7 @@ class _PostCardState extends State<PostCard> {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Image.network(
-        widget.post.imageUrl!,
+        post.imageUrl!,
         width: double.infinity,
         fit: BoxFit.cover,
         loadingBuilder: (context, child, loadingProgress) {
@@ -270,7 +218,8 @@ class _PostCardState extends State<PostCard> {
     );
   }
 
-  Widget _buildActionButtons() {
+  Widget _buildActionButtons(
+      BuildContext context, bool isLiked, CommunityService communityService) {
     return Row(
       children: [
         // Like
@@ -279,7 +228,20 @@ class _PostCardState extends State<PostCard> {
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(8),
-              onTap: _handleLike,
+              onTap: () async {
+                try {
+                  await communityService.toggleLike(post.id);
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -289,15 +251,15 @@ class _PostCardState extends State<PostCard> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      _isLiked ? Icons.favorite : Icons.favorite_border,
-                      color: _isLiked ? Colors.red : const Color(0xFF94A3B8),
+                      isLiked ? Icons.favorite : Icons.favorite_border,
+                      color: isLiked ? Colors.red : const Color(0xFF94A3B8),
                       size: 22,
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      '$_likesCount',
+                      '${post.likesCount}',
                       style: TextStyle(
-                        color: _isLiked ? Colors.red : const Color(0xFF94A3B8),
+                        color: isLiked ? Colors.red : const Color(0xFF94A3B8),
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
@@ -338,7 +300,7 @@ class _PostCardState extends State<PostCard> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      '$_commentsCount',
+                      '${post.commentsCount}',
                       style: const TextStyle(
                         color: Color(0xFF94A3B8),
                         fontSize: 14,
@@ -359,25 +321,18 @@ class _PostCardState extends State<PostCard> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => UserProfileScreen(userId: widget.post.userId),
+        builder: (context) => UserProfileScreen(userId: post.userId),
       ),
     );
   }
 
-  Future<void> _showCommentsBottomSheet(BuildContext context) async {
-    final result = await showModalBottomSheet(
+  void _showCommentsBottomSheet(BuildContext context) {
+    showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => CommentsBottomSheet(post: widget.post),
+      builder: (context) => CommentsBottomSheet(post: post),
     );
-
-    // Actualizar contador de comentarios si cambió
-    if (result != null && result is int) {
-      setState(() {
-        _commentsCount = result;
-      });
-    }
   }
 
   void _showOptions(BuildContext context, String postId) {
@@ -482,22 +437,23 @@ class _PostCardState extends State<PostCard> {
       ),
     );
 
-    if (confirm == true && mounted) {
+    if (confirm == true && context.mounted) {
       try {
-        await _communityService.deletePost(postId);
-        if (mounted) {
+        await CommunityService().deletePost(postId);
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Publicación eliminada'),
               backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
             ),
           );
         }
       } catch (e) {
-        if (mounted) {
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Error al eliminar la publicación'),
+            SnackBar(
+              content: Text('Error: ${e.toString()}'),
               backgroundColor: Colors.red,
             ),
           );

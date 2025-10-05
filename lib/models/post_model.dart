@@ -7,7 +7,7 @@ class Post {
   final String? userPhoto;
   final String content;
   final String? imageUrl;
-  final List<String> likes;
+  final List<String> likedBy; // Cambio aquí
   final int likesCount;
   final int commentsCount;
   final DateTime createdAt;
@@ -19,13 +19,12 @@ class Post {
     this.userPhoto,
     required this.content,
     this.imageUrl,
-    required this.likes,
+    required this.likedBy, // Cambio aquí
     required this.likesCount,
     required this.commentsCount,
     required this.createdAt,
   });
 
-  // Convertir desde Firestore
   factory Post.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return Post(
@@ -35,14 +34,14 @@ class Post {
       userPhoto: data['userPhoto'],
       content: data['content'] ?? '',
       imageUrl: data['imageUrl'],
-      likes: List<String>.from(data['likes'] ?? []),
+      // Compatibilidad con ambos nombres
+      likedBy: List<String>.from(data['likedBy'] ?? data['likes'] ?? []),
       likesCount: data['likesCount'] ?? 0,
       commentsCount: data['commentsCount'] ?? 0,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 
-  // Convertir a Firestore
   Map<String, dynamic> toFirestore() {
     return {
       'userId': userId,
@@ -50,15 +49,14 @@ class Post {
       'userPhoto': userPhoto,
       'content': content,
       'imageUrl': imageUrl,
-      'likes': likes,
+      'likedBy': likedBy, // Cambio aquí
       'likesCount': likesCount,
       'commentsCount': commentsCount,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
 
-  // Verificar si el usuario dio like
   bool isLikedBy(String userId) {
-    return likes.contains(userId);
+    return likedBy.contains(userId); // Cambio aquí
   }
 }

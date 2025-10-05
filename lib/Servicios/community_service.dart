@@ -118,6 +118,7 @@ class CommunityService {
     final postRef = _firestore.collection('posts').doc(postId);
 
     try {
+// En toggleLike, cambia todas las referencias de 'likedBy' a 'likes'
       await _firestore.runTransaction((transaction) async {
         final postDoc = await transaction.get(postRef);
 
@@ -126,20 +127,17 @@ class CommunityService {
         }
 
         final data = postDoc.data()!;
-        final likedBy =
-            List<String>.from(data['likedBy'] ?? data['likes'] ?? []);
+        final likes = List<String>.from(data['likes'] ?? []); // Cambio aquí
         final likesCount = (data['likesCount'] ?? 0) as int;
 
-        if (likedBy.contains(user.uid)) {
-          // Quitar like
+        if (likes.contains(user.uid)) {
           transaction.update(postRef, {
-            'likedBy': FieldValue.arrayRemove([user.uid]),
+            'likes': FieldValue.arrayRemove([user.uid]), // Cambio aquí
             'likesCount': likesCount > 0 ? likesCount - 1 : 0,
           });
         } else {
-          // Agregar like
           transaction.update(postRef, {
-            'likedBy': FieldValue.arrayUnion([user.uid]),
+            'likes': FieldValue.arrayUnion([user.uid]), // Cambio aquí
             'likesCount': likesCount + 1,
           });
         }
