@@ -11,10 +11,12 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _animationController;
+  late AnimationController _gradientController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  late Animation<double> _gradientAnimation;
 
   final FirebaseAuthService _authService = FirebaseAuthService();
   bool _isLoading = false;
@@ -26,6 +28,7 @@ class _LoginScreenState extends State<LoginScreen>
     // Verificar si ya hay un usuario autenticado
     _checkCurrentUser();
 
+    // Animación de entrada
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 1200),
       vsync: this,
@@ -48,6 +51,19 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
 
+    // Animación del degradado (bucle infinito)
+    _gradientController = AnimationController(
+      duration: const Duration(seconds: 4),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _gradientAnimation = Tween<double>(begin: 0.0, end: 0.7).animate(
+      CurvedAnimation(
+        parent: _gradientController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
     Future.delayed(const Duration(milliseconds: 200), () {
       _animationController.forward();
     });
@@ -55,7 +71,6 @@ class _LoginScreenState extends State<LoginScreen>
 
   void _checkCurrentUser() {
     if (_authService.currentUser != null) {
-      // Si hay usuario, navegar a home
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacement(
           context,
@@ -68,6 +83,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void dispose() {
     _animationController.dispose();
+    _gradientController.dispose();
     super.dispose();
   }
 
@@ -80,7 +96,6 @@ class _LoginScreenState extends State<LoginScreen>
       final user = await _authService.signInWithGoogle();
 
       if (user != null && mounted) {
-        // Navegación exitosa
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(
@@ -106,7 +121,6 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         );
       } else if (mounted) {
-        // El usuario canceló
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Inicio de sesión cancelado'),
@@ -134,271 +148,227 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isTablet = size.width > 600;
-    final maxWidth = isTablet ? 400.0 : size.width * 0.9;
-
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: size.height -
-                    MediaQuery.of(context).padding.top -
-                    MediaQuery.of(context).padding.bottom,
+      body: AnimatedBuilder(
+        animation: _gradientAnimation,
+        builder: (context, child) {
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomLeft,
+                end: Alignment.topRight,
+                colors: [
+                  Colors.black,
+                  Colors.black,
+                  Color.lerp(Colors.black, const Color(0xFF07173F),
+                      _gradientAnimation.value)!,
+                  const Color(0xFF07173F),
+                ],
+                stops: [
+                  0.0,
+                  _gradientAnimation.value * 0.5,
+                  _gradientAnimation.value,
+                  1.0,
+                ],
               ),
-              child: IntrinsicHeight(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isTablet ? 48.0 : 24.0,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Spacer(flex: 2),
+            ),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  // Contenido con scroll
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 60),
 
-                      // Logo minimalista
-                      FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: Container(
-                          width: isTablet ? 100 : 80,
-                          height: isTablet ? 100 : 80,
-                          decoration: BoxDecoration(
-                            color: Colors.blue[600],
-                            borderRadius: BorderRadius.circular(
-                              isTablet ? 24 : 20,
+                            // Logo del planeta
+                            FadeTransition(
+                              opacity: _fadeAnimation,
+                              child: Container(
+                                width: 180,
+                                height: 180,
+                                child: Image.asset(
+                                  'assets/images/Logo-02.png',
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
                             ),
-                          ),
-                          child: Icon(
-                            Icons.shield_outlined,
-                            size: isTablet ? 50 : 40,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
 
-                      SizedBox(height: isTablet ? 40 : 32),
+                            const SizedBox(height: 40),
 
-                      // Título
-                      SlideTransition(
-                        position: _slideAnimation,
-                        child: FadeTransition(
-                          opacity: _fadeAnimation,
-                          child: Column(
-                            children: [
-                              Text(
-                                'ExoAi',
-                                style: TextStyle(
-                                  fontSize: isTablet ? 32 : 28,
-                                  fontWeight: FontWeight.w300,
-                                  color: Colors.grey[900],
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                              SizedBox(height: isTablet ? 12 : 8),
-                              Text(
-                                'Inicia sesión para continuar',
-                                style: TextStyle(
-                                  fontSize: isTablet ? 18 : 16,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      const Spacer(flex: 3),
-
-                      // Botones de login
-                      SlideTransition(
-                        position: _slideAnimation,
-                        child: FadeTransition(
-                          opacity: _fadeAnimation,
-                          child: Container(
-                            width: maxWidth,
-                            child: Column(
-                              children: [
-                                // Apple - DESACTIVADO
-                                _buildMinimalButton(
-                                  icon: Icons.apple,
-                                  label: 'Continuar con Apple',
-                                  backgroundColor: Colors.grey[200]!,
-                                  textColor: Colors.grey[400]!,
-                                  isDisabled: true,
-                                  onTap: () {},
-                                ),
-
-                                SizedBox(height: isTablet ? 16 : 12),
-
-                                // Google - ACTIVO con Firebase
-                                _buildMinimalButton(
-                                  icon: Icons.g_mobiledata,
-                                  label: _isLoading
-                                      ? 'Conectando...'
-                                      : 'Continuar con Google',
-                                  backgroundColor: Colors.white,
-                                  textColor: Colors.grey[800]!,
-                                  hasBorder: true,
-                                  isLoading: _isLoading,
-                                  onTap: _isLoading ? () {} : _loginWithGoogle,
-                                ),
-
-                                SizedBox(height: isTablet ? 16 : 12),
-
-                                // Facebook - DESACTIVADO
-                                _buildMinimalButton(
-                                  icon: Icons.facebook,
-                                  label: 'Continuar con Facebook',
-                                  backgroundColor: Colors.grey[200]!,
-                                  textColor: Colors.grey[400]!,
-                                  isDisabled: true,
-                                  onTap: () {},
-                                ),
-
-                                SizedBox(height: isTablet ? 24 : 20),
-
-                                // Divider
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Container(
-                                        height: 1,
-                                        color: Colors.grey[300],
+                            // Título
+                            SlideTransition(
+                              position: _slideAnimation,
+                              child: FadeTransition(
+                                opacity: _fadeAnimation,
+                                child: Column(
+                                  children: const [
+                                    Text(
+                                      'Bienvenido a',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                      ),
-                                      child: Text(
-                                        'o',
-                                        style: TextStyle(
-                                          color: Colors.grey[500],
-                                          fontSize: isTablet ? 16 : 14,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Container(
-                                        height: 1,
-                                        color: Colors.grey[300],
+                                    Text(
+                                      'ExoAI',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ],
                                 ),
+                              ),
+                            ),
 
-                                SizedBox(height: isTablet ? 24 : 20),
+                            const SizedBox(height: 20),
 
-                                // Invitado - DESACTIVADO
-                                _buildMinimalButton(
-                                  icon: Icons.person_outline,
-                                  label: 'Continuar como invitado',
-                                  backgroundColor: Colors.grey[200]!,
-                                  textColor: Colors.grey[400]!,
-                                  isDisabled: true,
-                                  onTap: () {},
+                            // Subtítulo
+                            FadeTransition(
+                              opacity: _fadeAnimation,
+                              child: const Text(
+                                'Explorando nuevos exoplanetas a través\nde la inteligencia artificial',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Color(0xFF8B9DB8),
+                                  fontSize: 14,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Botones fijos en la parte inferior
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      child: Padding(
+                        padding:
+                            const EdgeInsets.fromLTRB(24.0, 0.0, 24.0, 24.0),
+                        child: SlideTransition(
+                          position: _slideAnimation,
+                          child: FadeTransition(
+                            opacity: _fadeAnimation,
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: () {},
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              const Color(0xFF1E4976),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 16),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(30),
+                                          ),
+                                          elevation: 0,
+                                        ),
+                                        child: const Text(
+                                          'Nasa',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: () {},
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              const Color(0xFF1E4976),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 16),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(30),
+                                          ),
+                                          elevation: 0,
+                                        ),
+                                        child: const Text(
+                                          'Institucional',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Botón Google con Firebase
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed:
+                                        _isLoading ? null : _loginWithGoogle,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF1570EF),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 16),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(30),
+                                      ),
+                                      elevation: 0,
+                                      disabledBackgroundColor:
+                                          const Color(0xFF1570EF)
+                                              .withOpacity(0.7),
+                                    ),
+                                    child: _isLoading
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                      Colors.white),
+                                            ),
+                                          )
+                                        : const Text(
+                                            'Google',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                         ),
                       ),
-
-                      const Spacer(flex: 2),
-
-                      // Términos
-                      FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 24),
-                          child: Text(
-                            'Al continuar, aceptas los Términos de Uso\ny Política de Privacidad',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: isTablet ? 14 : 12,
-                              color: Colors.grey[500],
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMinimalButton({
-    required IconData icon,
-    required String label,
-    required Color backgroundColor,
-    required Color textColor,
-    bool hasBorder = false,
-    bool isDisabled = false,
-    bool isLoading = false,
-    required VoidCallback onTap,
-  }) {
-    final size = MediaQuery.of(context).size;
-    final isTablet = size.width > 600;
-
-    return Material(
-      color: backgroundColor,
-      borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
-      child: InkWell(
-        onTap: isDisabled || isLoading ? null : onTap,
-        borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
-        child: Container(
-          height: isTablet ? 60 : 52,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
-            border: hasBorder
-                ? Border.all(color: Colors.grey[300]!, width: 1)
-                : null,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isLoading)
-                SizedBox(
-                  width: isTablet ? 24 : 22,
-                  height: isTablet ? 24 : 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(textColor),
-                  ),
-                )
-              else
-                Icon(icon, color: textColor, size: isTablet ? 24 : 22),
-              SizedBox(width: isTablet ? 16 : 12),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: isTablet ? 18 : 16,
-                  fontWeight: FontWeight.w500,
-                  color: textColor,
-                ),
-              ),
-              if (isDisabled) ...[
-                SizedBox(width: isTablet ? 12 : 8),
-                Icon(
-                  Icons.lock_outline,
-                  color: textColor,
-                  size: isTablet ? 20 : 18,
-                ),
-              ],
-            ],
-          ),
-        ),
+          );
+        },
       ),
     );
   }
