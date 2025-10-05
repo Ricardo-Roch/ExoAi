@@ -22,7 +22,6 @@ dependencies:
   file_picker: ^8.0.0+1
   flutter_local_notifications: ^18.0.1
   uuid: ^4.0.2
-  file_picker: ^8.0.0+1  # NUEVA - Para CSV
 
   
 

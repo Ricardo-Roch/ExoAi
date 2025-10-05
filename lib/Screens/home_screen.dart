@@ -4,6 +4,7 @@ import 'home_content.dart';
 import 'datos_screen.dart';
 import 'ia_screen.dart';
 import 'visualizaciones_screen.dart';
+import 'profile_screen.dart';
 import 'community_screen.dart';
 import 'login_screen.dart';
 import '../Servicios/firebase_auth_service.dart';
@@ -20,7 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final FirebaseAuthService _authService = FirebaseAuthService();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // SOLO 5 PANTALLAS - SIN PERFIL
+  // Lista de pantallas que se mostrarán
   late final List<Widget> _screens;
 
   Future<void> _handleLogout() async {
@@ -78,16 +79,18 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    // Obtenemos el nombre del usuario de Firebase
     final user = _authService.currentUser;
     final userName = user?.displayName?.split(' ')[0] ?? 'Usuario';
 
-    // SOLO 5 PANTALLAS
+    // Inicializamos la lista de pantallas con el nombre real del usuario
     _screens = [
-      HomeContent(userName: userName), // 0
-      const ExoplanetScreen(), // 1
-      const IAScreen(), // 2
-      const VisualizacionesScreen(), // 3
-      const CommunityScreen(), // 4
+      HomeContent(userName: userName),
+      const ExoplanetScreen(),
+      const IAScreen(),
+      const VisualizacionesScreen(),
+      const CommunityScreen(), // Índice 4
+      ProfileScreen(userName: userName), // Índice 5 - AGREGADO
     ];
   }
 
@@ -95,6 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _selectedIndex = index;
     });
+    // Cerrar el drawer después de seleccionar
     Navigator.of(context).pop();
   }
 
@@ -104,10 +108,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final userName = user?.displayName ?? 'Usuario';
     final userEmail = user?.email ?? '';
     final screenWidth = MediaQuery.of(context).size.width;
+
+    // Determinar si es un dispositivo grande (tablet/web)
     final isLargeScreen = screenWidth > 768;
 
     if (isLargeScreen) {
-      // DESKTOP: Drawer lateral
+      // Interfaz con Drawer lateral para pantallas grandes
       return Scaffold(
         key: _scaffoldKey,
         backgroundColor: const Color(0xFF0F172A),
@@ -150,7 +156,7 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: const Color(0xFF1E293B),
           child: Column(
             children: [
-              // Header del drawer
+              // Header del drawer con información del usuario
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(16, 60, 16, 20),
@@ -176,16 +182,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: CircleAvatar(
                         radius: 35,
                         backgroundColor: Colors.white,
-                        backgroundImage: user?.photoURL != null
-                            ? NetworkImage(user!.photoURL!)
-                            : null,
-                        child: user?.photoURL == null
-                            ? const Icon(
+                        child: user?.photoURL != null
+                            ? ClipOval(
+                                child: Image.network(
+                                  user!.photoURL!,
+                                  fit: BoxFit.cover,
+                                  width: 70,
+                                  height: 70,
+                                ),
+                              )
+                            : const Icon(
                                 Icons.person,
                                 size: 40,
                                 color: Color(0xFF60A5FA),
-                              )
-                            : null,
+                              ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -240,6 +250,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         title: 'Comunidad',
                         index: 4,
                       ),
+                      _buildDrawerItem(
+                        icon: Icons.person_rounded,
+                        title: 'Perfil',
+                        index: 5,
+                      ),
                     ],
                   ),
                 ),
@@ -270,9 +285,10 @@ class _HomeScreenState extends State<HomeScreen> {
         body: _screens[_selectedIndex],
       );
     } else {
-      // MOBILE: BottomNavigationBar con SOLO 5 items
+      // Interfaz con BottomNavigationBar para móviles
       return Scaffold(
         backgroundColor: const Color(0xFF0F172A),
+        appBar: null,
         body: _screens[_selectedIndex],
         bottomNavigationBar: Container(
           decoration: BoxDecoration(
@@ -317,6 +333,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildBottomNavItem(Icons.psychology_rounded, 'IA', 2),
               _buildBottomNavItem(Icons.visibility_rounded, 'Visual', 3),
               _buildBottomNavItem(Icons.forum_rounded, 'Social', 4),
+              _buildBottomNavItem(Icons.person_rounded, 'Perfil', 5),
             ],
           ),
         ),
@@ -400,6 +417,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return 'Visualizaciones';
       case 4:
         return 'Comunidad';
+      case 5:
+        return 'Perfil';
       default:
         return 'ExoAi';
     }
@@ -417,6 +436,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return Icons.visibility_rounded;
       case 4:
         return Icons.forum_rounded;
+      case 5:
+        return Icons.person_rounded;
       default:
         return Icons.apps;
     }
