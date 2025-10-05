@@ -1,4 +1,4 @@
-// lib/Screens/profile_screen.dart (ACTUALIZADO - Sin Media, edición directa de bio)
+// lib/Screens/profile_screen.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../Servicios/firebase_auth_service.dart';
@@ -127,7 +127,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context, snapshot) {
         final userModel = snapshot.data;
 
-        // Inicializar el controlador de bio solo una vez cuando los datos estén disponibles
         if (userModel != null &&
             _bioController.text.isEmpty &&
             !_isEditingBio) {
@@ -138,126 +137,165 @@ class _ProfileScreenState extends State<ProfileScreen> {
           backgroundColor: const Color(0xFF0F172A),
           body: CustomScrollView(
             slivers: [
-              // AppBar con banner
-              SliverAppBar(
-                expandedHeight: 30,
-                pinned: true,
-                backgroundColor: const Color(0xFF1E293B),
-                actions: [
-                  // Logo en la esquina superior derecha
-                  Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: Image.asset(
-                      'assets/images/Logo-02.png',
-                      height: 40,
-                      width: 40,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SearchUsersScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.logout),
-                    onPressed: _handleLogout,
-                  ),
-                ],
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          const Color(0xFF60A5FA).withOpacity(0.3),
-                          const Color(0xFF1E293B),
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 60),
+
+                    // Iconos de búsqueda y logout
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.search,
+                                color: Color(0xFF60A5FA)),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const SearchUsersScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.logout,
+                                color: Color(0xFF60A5FA)),
+                            onPressed: _handleLogout,
+                          ),
                         ],
                       ),
                     ),
-                  ),
-                ),
-              ),
 
-              // Contenido del perfil
-              SliverToBoxAdapter(
-                child: Transform.translate(
-                  offset: const Offset(0, -50),
-                  child: Column(
-                    children: [
-                      // Foto de perfil
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: const Color(0xFF60A5FA),
-                            width: 4,
+                    const SizedBox(height: 20),
+
+                    // Foto de perfil
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF60A5FA).withOpacity(0.4),
+                            blurRadius: 30,
+                            spreadRadius: 5,
+                            offset: const Offset(0, 10),
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF60A5FA).withOpacity(0.5),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
+                        ],
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFF60A5FA),
+                              Color(0xFF3B82F6),
+                            ],
+                          ),
                         ),
-                        child: CircleAvatar(
-                          radius: 60,
-                          backgroundColor: const Color(0xFF1E293B),
-                          backgroundImage: user.photoURL != null
-                              ? NetworkImage(user.photoURL!)
-                              : null,
-                          child: user.photoURL == null
-                              ? const Icon(
-                                  Icons.person,
-                                  size: 60,
-                                  color: Color(0xFF60A5FA),
-                                )
-                              : null,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xFF0F172A),
+                          ),
+                          child: CircleAvatar(
+                            radius: 65,
+                            backgroundColor: const Color(0xFF1E293B),
+                            backgroundImage: user.photoURL != null
+                                ? NetworkImage(user.photoURL!)
+                                : null,
+                            child: user.photoURL == null
+                                ? const Icon(
+                                    Icons.person,
+                                    size: 65,
+                                    color: Color(0xFF60A5FA),
+                                  )
+                                : null,
+                          ),
                         ),
                       ),
+                    ),
 
-                      const SizedBox(height: 16),
+                    const SizedBox(height: 20),
 
-                      // Nombre
-                      Text(
+                    // Nombre
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+                            const Color(0xFF60A5FA).withOpacity(0.1),
+                            Colors.transparent,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
                         userModel?.displayName ?? widget.userName,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
                         ),
                       ),
+                    ),
 
-                      const SizedBox(height: 8),
+                    const SizedBox(height: 8),
 
-                      // Email
-                      Text(
-                        user.email ?? '',
-                        style: const TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 14,
+                    // Email
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.email_outlined,
+                          color: Color(0xFF60A5FA),
+                          size: 16,
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Text(
+                          user.email ?? '',
+                          style: const TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
 
-                      const SizedBox(height: 16),
+                    const SizedBox(height: 20),
 
-                      // Bio editable
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 32),
-                        child: _isEditingBio
-                            ? Column(
-                                children: [
-                                  TextField(
+                    // Bio editable
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: _isEditingBio
+                          ? Column(
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF60A5FA)
+                                            .withOpacity(0.2),
+                                        blurRadius: 20,
+                                        offset: const Offset(0, 5),
+                                      ),
+                                    ],
+                                  ),
+                                  child: TextField(
                                     controller: _bioController,
-                                    maxLines: 3,
+                                    maxLines: 4,
                                     maxLength: 200,
                                     style: const TextStyle(color: Colors.white),
                                     decoration: InputDecoration(
@@ -267,184 +305,316 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       filled: true,
                                       fillColor: const Color(0xFF1E293B),
                                       border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(16),
                                         borderSide: const BorderSide(
                                             color: Color(0xFF334155)),
                                       ),
                                       focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(16),
                                         borderSide: const BorderSide(
                                             color: Color(0xFF60A5FA), width: 2),
                                       ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: const BorderSide(
+                                            color: Color(0xFF334155)),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      TextButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            _isEditingBio = false;
-                                            _bioController.text =
-                                                userModel?.bio ?? '';
-                                          });
-                                        },
-                                        child: const Text('Cancelar'),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      ElevatedButton(
-                                        onPressed:
-                                            _isSavingBio ? null : _saveBio,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              const Color(0xFF60A5FA),
-                                        ),
-                                        child: _isSavingBio
-                                            ? const SizedBox(
-                                                width: 16,
-                                                height: 16,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                        strokeWidth: 2),
-                                              )
-                                            : const Text('Guardar'),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              )
-                            : GestureDetector(
-                                onTap: () {
-                                  setState(() => _isEditingBio = true);
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF1E293B),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color(0xFF334155),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          userModel?.bio != null &&
-                                                  userModel!.bio!.isNotEmpty
-                                              ? userModel.bio!
-                                              : 'Toca para agregar biografía',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            color: userModel?.bio != null &&
-                                                    userModel!.bio!.isNotEmpty
-                                                ? const Color(0xFF94A3B8)
-                                                : const Color(0xFF64748B),
-                                            fontSize: 14,
-                                            height: 1.5,
-                                            fontStyle: userModel?.bio != null &&
-                                                    userModel!.bio!.isNotEmpty
-                                                ? FontStyle.normal
-                                                : FontStyle.italic,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const Icon(
-                                        Icons.edit,
-                                        size: 16,
-                                        color: Color(0xFF60A5FA),
-                                      ),
-                                    ],
                                   ),
                                 ),
-                              ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Estadísticas
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 24),
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFF1E293B),
-                              Color(0xFF0F172A),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(0xFF334155),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildStatColumn(
-                              'Posts',
-                              '${userModel?.postsCount ?? 0}',
-                              Icons.article,
-                            ),
-                            Container(
-                              width: 1,
-                              height: 40,
-                              color: const Color(0xFF334155),
-                            ),
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => FollowersListScreen(
-                                      userId: user.uid,
-                                      title: 'Seguidores',
+                                const SizedBox(height: 16),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    TextButton.icon(
+                                      onPressed: () {
+                                        setState(() {
+                                          _isEditingBio = false;
+                                          _bioController.text =
+                                              userModel?.bio ?? '';
+                                        });
+                                      },
+                                      icon: const Icon(Icons.close, size: 18),
+                                      label: const Text('Cancelar'),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor:
+                                            const Color(0xFF94A3B8),
+                                      ),
                                     ),
-                                  ),
-                                );
-                              },
-                              child: _buildStatColumn(
-                                'Seguidores',
-                                '${userModel?.followersCount ?? 0}',
-                                Icons.people,
-                              ),
-                            ),
-                            Container(
-                              width: 1,
-                              height: 40,
-                              color: const Color(0xFF334155),
-                            ),
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => FollowingListScreen(
-                                      userId: user.uid,
-                                      title: 'Siguiendo',
+                                    const SizedBox(width: 16),
+                                    ElevatedButton.icon(
+                                      onPressed: _isSavingBio ? null : _saveBio,
+                                      icon: _isSavingBio
+                                          ? const SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : const Icon(Icons.check, size: 18),
+                                      label: const Text('Guardar'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            const Color(0xFF60A5FA),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 24,
+                                          vertical: 12,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                );
+                                  ],
+                                ),
+                              ],
+                            )
+                          : GestureDetector(
+                              onTap: () {
+                                setState(() => _isEditingBio = true);
                               },
-                              child: _buildStatColumn(
-                                'Siguiendo',
-                                '${userModel?.followingCount ?? 0}',
-                                Icons.person_add,
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      const Color(0xFF1E293B),
+                                      const Color(0xFF0F172A).withOpacity(0.8),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: const Color(0xFF334155),
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        userModel?.bio != null &&
+                                                userModel!.bio!.isNotEmpty
+                                            ? userModel.bio!
+                                            : 'Toca para agregar biografía',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: userModel?.bio != null &&
+                                                  userModel!.bio!.isNotEmpty
+                                              ? const Color(0xFFE2E8F0)
+                                              : const Color(0xFF64748B),
+                                          fontSize: 14,
+                                          height: 1.5,
+                                          fontStyle: userModel?.bio != null &&
+                                                  userModel!.bio!.isNotEmpty
+                                              ? FontStyle.normal
+                                              : FontStyle.italic,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF60A5FA)
+                                            .withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(
+                                        Icons.edit,
+                                        size: 18,
+                                        color: Color(0xFF60A5FA),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Estadísticas
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF1E293B),
+                            Color(0xFF0F172A),
                           ],
                         ),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: const Color(0xFF334155),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF60A5FA).withOpacity(0.1),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
                       ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildStatColumn(
+                            'Posts',
+                            '${userModel?.postsCount ?? 0}',
+                            Icons.article_rounded,
+                          ),
+                          Container(
+                            width: 1,
+                            height: 50,
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Color(0xFF334155),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => FollowersListScreen(
+                                    userId: user.uid,
+                                    title: 'Seguidores',
+                                  ),
+                                ),
+                              );
+                            },
+                            child: _buildStatColumn(
+                              'Seguidores',
+                              '${userModel?.followersCount ?? 0}',
+                              Icons.people_rounded,
+                            ),
+                          ),
+                          Container(
+                            width: 1,
+                            height: 50,
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Color(0xFF334155),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => FollowingListScreen(
+                                    userId: user.uid,
+                                    title: 'Siguiendo',
+                                  ),
+                                ),
+                              );
+                            },
+                            child: _buildStatColumn(
+                              'Siguiendo',
+                              '${userModel?.followingCount ?? 0}',
+                              Icons.person_add_rounded,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
-                      const SizedBox(height: 24),
-                    ],
-                  ),
+                    const SizedBox(height: 32),
+
+                    // Divisor con título
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 1,
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [
+                                    Colors.transparent,
+                                    Color(0xFF334155),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.grid_on_rounded,
+                                  color: Color(0xFF60A5FA),
+                                  size: 18,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Publicaciones',
+                                  style: TextStyle(
+                                    color: Color(0xFF94A3B8),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Container(
+                              height: 1,
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [
+                                    Color(0xFF334155),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+                  ],
                 ),
               ),
 
@@ -460,8 +630,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildStatColumn(String label, String value, IconData icon) {
     return Column(
       children: [
-        Icon(icon, color: const Color(0xFF60A5FA), size: 28),
-        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFF60A5FA).withOpacity(0.2),
+                const Color(0xFF3B82F6).withOpacity(0.1),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: const Color(0xFF60A5FA), size: 28),
+        ),
+        const SizedBox(height: 12),
         Text(
           value,
           style: const TextStyle(
@@ -470,11 +654,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
+        const SizedBox(height: 4),
         Text(
           label,
           style: const TextStyle(
             color: Color(0xFF94A3B8),
             fontSize: 12,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
@@ -493,7 +679,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Center(
               child: Padding(
                 padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(),
+                child: CircularProgressIndicator(
+                  color: Color(0xFF60A5FA),
+                ),
               ),
             ),
           );
@@ -508,17 +696,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 padding: const EdgeInsets.all(64),
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.article_outlined,
-                      size: 64,
-                      color: Colors.grey[600],
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFF334155),
+                          width: 2,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.article_outlined,
+                        size: 64,
+                        color: const Color(0xFF60A5FA).withOpacity(0.5),
+                      ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     Text(
                       'No has publicado nada aún',
                       style: TextStyle(
                         color: Colors.grey[400],
                         fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '¡Comparte tu primer post!',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
                       ),
                     ),
                   ],
@@ -528,10 +736,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           );
         }
 
-        return SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) => PostCard(post: posts[index]),
-            childCount: posts.length,
+        return SliverPadding(
+          padding: const EdgeInsets.only(bottom: 16),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => PostCard(post: posts[index]),
+              childCount: posts.length,
+            ),
           ),
         );
       },
