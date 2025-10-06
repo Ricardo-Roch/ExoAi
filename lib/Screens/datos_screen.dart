@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 import '../Servicios/BackendExoplanetService.dart';
 import '../Servicios/gemini_service.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:ui' as ui;
+import 'dart:html' as html;
 
 class ExoplanetScreen extends StatefulWidget {
   const ExoplanetScreen({Key? key}) : super(key: key);
@@ -20,9 +22,7 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   Map<String, dynamic>? _backendStatus;
-  late final WebViewController _webViewController;
 
-  // Datos fijos de respaldo
   final List<ExoplanetData> _fallbackExoplanets = [
     ExoplanetData(
       name: 'Kepler-452b',
@@ -79,16 +79,25 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
   @override
   void initState() {
     super.initState();
-    _initWebView();
     _loadData();
+    if (kIsWeb) {
+      _registerIframeView();
+    }
   }
 
-  void _initWebView() {
-    _webViewController = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0x00000000))
-      ..loadRequest(
-          Uri.parse('https://eyes.nasa.gov/apps/solar-system/#/home'));
+  void _registerIframeView() {
+    // ignore: undefined_prefixed_name
+    ui.platformViewRegistry.registerViewFactory(
+      'nasa-eyes-iframe',
+      (int viewId) {
+        final iframe = html.IFrameElement()
+          ..src = 'https://eyes.nasa.gov/apps/solar-system/#/home'
+          ..style.border = 'none'
+          ..style.height = '100%'
+          ..style.width = '100%';
+        return iframe;
+      },
+    );
   }
 
   Future<void> _loadData() async {
@@ -98,22 +107,16 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
     });
 
     try {
-      // 1. Verificar estado del backend
       final health = await _service.checkHealth();
       setState(() => _backendStatus = health);
 
-      // 2. Verificar si hay datos
       final status = await _service.getTrainStatus();
 
-      // 3. Si no hay datos, descargarlos
       if (status['data_available'] == false) {
         await _service.fetchDatasets();
       }
 
-      // 4. Obtener preview de exoplanetas
       final preview = await _service.getDatasetPreview(n: 100);
-
-      // 5. Parsear exoplanetas
       final exoplanets = _service.parseExoplanetsFromPreview(preview);
 
       setState(() {
@@ -121,10 +124,8 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      // En caso de error, usar datos de respaldo
       setState(() {
         _exoplanets = _fallbackExoplanets;
-        //_errorMessage = 'Usando datos locales: ${e.toString()}';
         _isLoading = false;
       });
     }
@@ -165,7 +166,6 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
           ),
           child: Column(
             children: [
-              // Header
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -219,14 +219,15 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
                   ],
                 ),
               ),
-              // WebView
               Expanded(
                 child: ClipRRect(
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(18),
                     bottomRight: Radius.circular(18),
                   ),
-                  child: WebViewWidget(controller: _webViewController),
+                  child: const HtmlElementView(
+                    viewType: 'nasa-eyes-iframe',
+                  ),
                 ),
               ),
             ],
@@ -261,7 +262,6 @@ class _ExoplanetScreenState extends State<ExoplanetScreen> {
     );
 
     try {
-      // Crear prompt específico para exoplanetas
       final prompt = '''
 Eres un experto en exoplanetas. Analiza este exoplaneta y destaca lo más interesante:
 
@@ -273,13 +273,12 @@ Insolación: ${exoplanet.insolation?.toStringAsFixed(2) ?? 'N/A'} S⊕
 Radio estelar: ${exoplanet.srad?.toStringAsFixed(2) ?? 'N/A'} R☉
 
 Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
-1.⁠ ⁠Lo más notable de este exoplaneta
-2.⁠ ⁠Su potencial para albergar vida (si aplica)
-3.⁠ ⁠Comparación con la Tierra
-4.⁠ ⁠Características únicas o interesantes
+1. Lo más notable de este exoplaneta
+2. Su potencial para albergar vida (si aplica)
+3. Comparación con la Tierra
+4. Características únicas o interesantes
 ''';
 
-      // Llamar a Gemini con el prompt personalizado
       final response = await _geminiService.analyzeSpaceLaunch({
         'nombre': exoplanet.name,
         'proveedor': 'Kepler/TESS Mission',
@@ -428,7 +427,6 @@ Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
         child: SafeArea(
           child: Column(
             children: [
-              // Header con logo
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
@@ -441,7 +439,6 @@ Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
                     ),
                     Row(
                       children: [
-                        // Botón NASA Eyes
                         Container(
                           margin: const EdgeInsets.only(right: 12),
                           decoration: BoxDecoration(
@@ -461,7 +458,6 @@ Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
                             tooltip: 'NASA Eyes on Solar System',
                           ),
                         ),
-                        // Avatar del usuario
                         Container(
                           padding: const EdgeInsets.all(3),
                           decoration: BoxDecoration(
@@ -491,8 +487,6 @@ Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
                   ],
                 ),
               ),
-
-              // Contenido
               Expanded(
                 child: _isLoading
                     ? const Center(
@@ -523,7 +517,6 @@ Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
       color: const Color(0xFF60A5FA),
       child: CustomScrollView(
         slivers: [
-          // Stats card
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -601,8 +594,6 @@ Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
               ),
             ),
           ),
-
-          // Lista de exoplanetas
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: SliverList(
@@ -615,7 +606,6 @@ Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
               ),
             ),
           ),
-
           const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
         ],
       ),
@@ -737,50 +727,39 @@ Proporciona un análisis breve (máximo 80 palabras) en español que destaque:
                   _buildDataRow('Radio Estelar',
                       '${exoplanet.srad?.toStringAsFixed(2) ?? 'N/A'} R☉'),
                   const SizedBox(height: 16),
-
-                  // Botón de Gemini - RESPONSIVO MEJORADO
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      return SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () => _analyzeExoplanet(exoplanet),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF60A5FA),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            elevation: 4,
-                            shadowColor:
-                                const Color(0xFF60A5FA).withOpacity(0.5),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.auto_awesome, size: 18),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  'Analizar con Gemini AI',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                ),
-                              ),
-                            ],
-                          ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => _analyzeExoplanet(exoplanet),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF60A5FA),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
                         ),
-                      );
-                    },
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 4,
+                        shadowColor: const Color(0xFF60A5FA).withOpacity(0.5),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.auto_awesome, size: 18),
+                          SizedBox(width: 8),
+                          Text(
+                            'Analizar con Gemini AI',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
