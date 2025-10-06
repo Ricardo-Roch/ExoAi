@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../../Downloads/ia"
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "exo_ai"
+	}
+}
